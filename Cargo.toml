@@ -1,0 +1,4 @@
+[package]
+name = "gameboy"
+version = "0.1.0"
+authors = ["nwessing <nwessing3@gmail.com>"]
