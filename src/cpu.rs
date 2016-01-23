@@ -50,6 +50,7 @@ pub struct Cpu {
     pub hl: u16,
     pub sp: u16,
     pub pc: u16,
+    pub interrupt_enable_master: bool,
     pub flag: FlagRegister,
     pub instructions: Vec<Instruction>,
 }
@@ -70,6 +71,7 @@ impl Cpu {
             hl: 0,
             sp: 0,
             pc: 0,
+            interrupt_enable_master: false,
             flag: FlagRegister::new(),
             instructions: get_instruction_set()
         }

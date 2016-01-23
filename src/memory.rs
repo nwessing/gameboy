@@ -5,7 +5,7 @@ pub struct Memory {
 impl Memory {
     pub fn new() -> Memory {
         Memory {
-            mem: vec![0; 0xFFFF]
+            mem: vec![0; 0xFFFF + 0x0001]
         }
     }
 

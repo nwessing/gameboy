@@ -1,5 +1,6 @@
 use game_boy::GameBoy;
 use cpu::Cpu;
+use util::to_signed_word;
 
 pub struct Instruction {
     pub name: &'static str,
@@ -32,9 +33,18 @@ pub fn get_instruction_set() -> Vec<Instruction> {
         Instruction::new("LD H,n", 0x26, 1, 8, load_h_n),
         Instruction::new("LD L,n", 0x2E, 1, 8, load_l_n),
 
-
-
         Instruction::new("LD A,A", 0x7F, 0, 4, load_a_a),
+        Instruction::new("LD A,B", 0x78, 0, 4, load_a_b),
+        Instruction::new("LD A,C", 0x79, 0, 4, load_a_c),
+        Instruction::new("LD A,D", 0x7A, 0, 4, load_a_d),
+        Instruction::new("LD A,E", 0x7B, 0, 4, load_a_e),
+        Instruction::new("LD A,H", 0x7C, 0, 4, load_a_h),
+        Instruction::new("LD A,L", 0x7D, 0, 4, load_a_l),
+
+        Instruction::new("LD A,n", 0x3E, 1, 8, load_a_n),
+
+
+
         Instruction::new("LD B,A", 0x47, 0, 4, load_b_a),
         Instruction::new("LD C,A", 0x4F, 0, 4, load_c_a),
         Instruction::new("LD D,A", 0x57, 0, 4, load_d_a),
@@ -45,12 +55,16 @@ pub fn get_instruction_set() -> Vec<Instruction> {
         // Instruction::new("LD (DE),A", 0x12, 0, 8, load_bc_a),
         // Instruction::new("LD (HL),A", 0x77, 0, 8, load_bc_a),
         // Instruction::new("LD (nn),A", 0xEA, 0, 16, load_bc_a),
+
+
         Instruction::new("LD BC,nn", 0x01, 2, 12, load_bc_nn),
         Instruction::new("LD DE,nn", 0x11, 2, 12, load_de_nn),
         Instruction::new("LD HL,nn", 0x21, 2, 12, load_hl_nn),
         Instruction::new("LD SP,nn", 0x31, 2, 12, load_sp_nn),
 
         Instruction::new("LD (HL),A; DEC HL", 0x32, 0, 8, load_mem_hl_with_a_dec_hl),
+        Instruction::new("LD (0xFF00 + n),A", 0xE0, 1, 12, load_ff00_plus_n_with_a),
+        Instruction::new("LD A,(0xFF00 + n)", 0xF0, 1, 12, load_a_with_ff00_plus_n),
 
         Instruction::new("XOR A", 0xAF, 0, 4, xor_a),
         Instruction::new("XOR B", 0xA8, 0, 4, xor_b),
@@ -83,6 +97,15 @@ pub fn get_instruction_set() -> Vec<Instruction> {
         // Instruction::new("DEC (HL)", 0x35, 0, 12, decrement_l),
 
         Instruction::new("JP nn", 0xC3, 2, 12, jump_immediate),
+        Instruction::new("JP NZ,nn", 0x20, 1, 8, jump_not_z_flag),
+        Instruction::new("JP Z,nn", 0x28, 1, 8, jump_z_flag),
+        Instruction::new("JP NC,nn", 0x30, 1, 8, jump_not_c_flag),
+        Instruction::new("JP C,nn", 0x38, 1, 8, jump_c_flag),
+
+        Instruction::new("DI", 0xF3, 0, 4, disable_interrupts),
+        Instruction::new("EI", 0xFB, 0, 4, enable_interrupts),
+
+
     ]
 }
 
@@ -96,7 +119,27 @@ fn jump_immediate(gb: &mut GameBoy, a1: u8, a2: u8) {
 }
 
 fn jump_not_z_flag(gb: &mut GameBoy, a1: u8, _: u8) {
-    
+    if !gb.cpu.flag.zero {
+        gb.cpu.pc = ((gb.cpu.pc as i16) + to_signed_word(a1)) as u16;
+    }
+}
+
+fn jump_z_flag(gb: &mut GameBoy, a1: u8, _: u8) {
+    if gb.cpu.flag.zero {
+        gb.cpu.pc = ((gb.cpu.pc as i16) + to_signed_word(a1)) as u16;
+    }
+}
+
+fn jump_not_c_flag(gb: &mut GameBoy, a1: u8, _: u8) {
+    if !gb.cpu.flag.carry {
+        gb.cpu.pc = ((gb.cpu.pc as i16) + to_signed_word(a1)) as u16;
+    }
+}
+
+fn jump_c_flag(gb: &mut GameBoy, a1: u8, _: u8) {
+    if gb.cpu.flag.carry {
+        gb.cpu.pc = ((gb.cpu.pc as i16) + to_signed_word(a1)) as u16;
+    }
 }
 
 // fn call(gb: &mut GameBoy, a1: u8, a2: u8) {
@@ -203,6 +246,36 @@ fn load_a_a(gb: &mut GameBoy, _: u8, _: u8) {
     gb.cpu.set_a(val);
 }
 
+fn load_a_b(gb: &mut GameBoy, _: u8, _: u8) {
+    let val = gb.cpu.get_b();
+    gb.cpu.set_a(val);
+}
+
+fn load_a_c(gb: &mut GameBoy, _: u8, _: u8) {
+    let val = gb.cpu.get_c();
+    gb.cpu.set_a(val);
+}
+
+fn load_a_d(gb: &mut GameBoy, _: u8, _: u8) {
+    let val = gb.cpu.get_d();
+    gb.cpu.set_a(val);
+}
+
+fn load_a_e(gb: &mut GameBoy, _: u8, _: u8) {
+    let val = gb.cpu.get_e();
+    gb.cpu.set_a(val);
+}
+
+fn load_a_h(gb: &mut GameBoy, _: u8, _: u8) {
+    let val = gb.cpu.get_h();
+    gb.cpu.set_a(val);
+}
+
+fn load_a_l(gb: &mut GameBoy, _: u8, _: u8) {
+    let val = gb.cpu.get_l();
+    gb.cpu.set_a(val);
+}
+
 fn load_b_a(gb: &mut GameBoy, _: u8, _: u8) {
     let val = gb.cpu.get_a();
     gb.cpu.set_b(val);
@@ -231,6 +304,10 @@ fn load_h_a(gb: &mut GameBoy, _: u8, _: u8) {
 fn load_l_a(gb: &mut GameBoy, _: u8, _: u8) {
     let val = gb.cpu.get_a();
     gb.cpu.set_l(val);
+}
+
+fn load_a_n(gb: &mut GameBoy, a1: u8, _: u8) {
+    gb.cpu.set_a(a1);
 }
 
 fn load_b_n(gb: &mut GameBoy, a1: u8, _: u8) {
@@ -271,6 +348,16 @@ fn load_hl_nn(gb: &mut GameBoy, a1: u8, a2: u8) {
 
 fn load_sp_nn(gb: &mut GameBoy, a1: u8, a2: u8) {
     gb.cpu.sp = ((a2 as u16) << 8) + (a1 as u16);
+}
+
+fn load_ff00_plus_n_with_a(gb: &mut GameBoy, a1: u8, _: u8) {
+    let val = gb.cpu.get_a();
+    gb.memory.set_byte(0xFF00 + (a1 as u16), val);
+}
+
+fn load_a_with_ff00_plus_n(gb: &mut GameBoy, a1: u8, _: u8) {
+    let val = gb.memory.get_byte(0xFF00 + (a1 as u16));
+    gb.cpu.set_a(val);
 }
 
 fn load_mem_hl_with_a_dec_hl(gb: &mut GameBoy, _: u8, _: u8) {
@@ -325,4 +412,14 @@ fn xor_h(gb: &mut GameBoy, _: u8, _: u8) {
 fn xor_l(gb: &mut GameBoy, _: u8, _: u8) {
     let val = gb.cpu.get_l();
     xor_a_with(gb, val);
+}
+
+fn disable_interrupts(gb: &mut GameBoy, _: u8, _: u8) {
+    //TODO some sources say this doesn't happen until after the next Instruction
+    gb.cpu.interrupt_enable_master = false;
+}
+
+fn enable_interrupts(gb: &mut GameBoy, _: u8, _: u8) {
+    //TODO some sources say this doesn't happen until after the next Instruction
+    gb.cpu.interrupt_enable_master = true;
 }
