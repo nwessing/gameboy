@@ -17,3 +17,7 @@ pub fn set_lower(to_set: &mut u16, b: u8) {
 pub fn to_signed_word(arg: u8) -> i16 {
     (arg as i8) as i16
 }
+
+pub fn concat_bytes(a1: u8, a2: u8) -> u16 {
+    ((a1 as u16) << 8) + (a2 as u16)
+}

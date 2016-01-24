@@ -1,5 +1,6 @@
 use instructions::Instruction;
 use instructions::get_instruction_set;
+use cb_instructions::get_cb_instruction_set;
 use std::fmt;
 use util::get_upper;
 use util::get_lower;
@@ -52,7 +53,8 @@ pub struct Cpu {
     pub pc: u16,
     pub interrupt_enable_master: bool,
     pub flag: FlagRegister,
-    pub instructions: Vec<Instruction>,
+    instructions: Vec<Instruction>,
+    cb_instructions: Vec<Instruction>
 }
 
 impl fmt::Display for Cpu {
@@ -73,7 +75,9 @@ impl Cpu {
             pc: 0,
             interrupt_enable_master: false,
             flag: FlagRegister::new(),
-            instructions: get_instruction_set()
+            instructions: get_instruction_set(),
+            cb_instructions: get_cb_instruction_set()
+
         }
     }
 
@@ -147,11 +151,20 @@ impl Cpu {
         self.de = 0x00D8;
         self.hl = 0x014D;
         self.sp = 0xFFFE;
-        self.pc = 0x0100;
+        self.pc = 0x0000;
     }
 
     pub fn get_instruction(&self, opcode: u8) -> Option<&Instruction> {
         for ins in &self.instructions {
+            if ins.opcode == opcode {
+                return Option::Some(&ins);
+            }
+        }
+        Option::None
+    }
+
+    pub fn get_cb_instruction(&self, opcode: u8) -> Option<&Instruction> {
+        for ins in &self.cb_instructions {
             if ins.opcode == opcode {
                 return Option::Some(&ins);
             }

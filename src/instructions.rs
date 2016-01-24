@@ -1,6 +1,9 @@
 use game_boy::GameBoy;
 use cpu::Cpu;
 use util::to_signed_word;
+use util::concat_bytes;
+use math::rotate_left;
+use cb_instructions::rotate_left_a;
 
 pub struct Instruction {
     pub name: &'static str,
@@ -40,10 +43,11 @@ pub fn get_instruction_set() -> Vec<Instruction> {
         Instruction::new("LD A,E", 0x7B, 0, 4, load_a_e),
         Instruction::new("LD A,H", 0x7C, 0, 4, load_a_h),
         Instruction::new("LD A,L", 0x7D, 0, 4, load_a_l),
-
+        Instruction::new("LD A,(BC)", 0x0A, 0, 8, load_a_mem_bc),
+        Instruction::new("LD A,(DE)", 0x1A, 0, 8, load_a_mem_de),
+        Instruction::new("LD A,(HL)", 0x7E, 0, 8, load_a_mem_hl),
+        Instruction::new("LD A,(nn)", 0xFA, 2, 16, load_a_mem_nn),
         Instruction::new("LD A,n", 0x3E, 1, 8, load_a_n),
-
-
 
         Instruction::new("LD B,A", 0x47, 0, 4, load_b_a),
         Instruction::new("LD C,A", 0x4F, 0, 4, load_c_a),
@@ -51,11 +55,10 @@ pub fn get_instruction_set() -> Vec<Instruction> {
         Instruction::new("LD E,A", 0x5F, 0, 4, load_e_a),
         Instruction::new("LD H,A", 0x67, 0, 4, load_h_a),
         Instruction::new("LD L,A", 0x6f, 0, 4, load_l_a),
-        Instruction::new("LD (BC),A", 0x02, 0, 8, load_bc_a),
-        // Instruction::new("LD (DE),A", 0x12, 0, 8, load_bc_a),
-        // Instruction::new("LD (HL),A", 0x77, 0, 8, load_bc_a),
-        // Instruction::new("LD (nn),A", 0xEA, 0, 16, load_bc_a),
-
+        Instruction::new("LD (BC),A", 0x02, 0, 8, load_mem_bc_a),
+        Instruction::new("LD (DE),A", 0x12, 0, 8, load_mem_de_a),
+        Instruction::new("LD (HL),A", 0x77, 0, 8, load_mem_hl_a),
+        Instruction::new("LD (nn),A", 0xEA, 2, 16, load_mem_nn_a),
 
         Instruction::new("LD BC,nn", 0x01, 2, 12, load_bc_nn),
         Instruction::new("LD DE,nn", 0x11, 2, 12, load_de_nn),
@@ -63,8 +66,21 @@ pub fn get_instruction_set() -> Vec<Instruction> {
         Instruction::new("LD SP,nn", 0x31, 2, 12, load_sp_nn),
 
         Instruction::new("LD (HL),A; DEC HL", 0x32, 0, 8, load_mem_hl_with_a_dec_hl),
+        Instruction::new("LD (HL),A; INC HL", 0x22, 0, 8, load_mem_hl_with_a_inc_hl),
+
         Instruction::new("LD (0xFF00 + n),A", 0xE0, 1, 12, load_ff00_plus_n_with_a),
         Instruction::new("LD A,(0xFF00 + n)", 0xF0, 1, 12, load_a_with_ff00_plus_n),
+        Instruction::new("LD (0xFF00 + C),A", 0xE2, 0, 8, load_ff00_plus_c_with_a),
+
+        Instruction::new("PUSH AF", 0xF5, 0, 16, push_af),
+        Instruction::new("PUSH BC", 0xC5, 0, 16, push_bc),
+        Instruction::new("PUSH DE", 0xD5, 0, 16, push_de),
+        Instruction::new("PUSH HL", 0xE5, 0, 16, push_hl),
+        
+        Instruction::new("POP AF", 0xF1, 0, 12, pop_af),
+        Instruction::new("POP BC", 0xC1, 0, 12, pop_bc),
+        Instruction::new("POP DE", 0xD1, 0, 12, pop_de),
+        Instruction::new("POP HL", 0xE1, 0, 12, pop_hl),
 
         Instruction::new("XOR A", 0xAF, 0, 4, xor_a),
         Instruction::new("XOR B", 0xA8, 0, 4, xor_b),
@@ -76,8 +92,6 @@ pub fn get_instruction_set() -> Vec<Instruction> {
         // Instruction::new("XOR (HL)", 0xAE, 0, 8, ?),
         // Instruction::new("XOR *", 0xEE, 0, 8, ?),
 
-
-
         Instruction::new("INC A", 0x3C, 0, 4, increment_a),
         Instruction::new("INC B", 0x04, 0, 4, increment_b),
         Instruction::new("INC C", 0x0C, 0, 4, increment_c),
@@ -85,6 +99,10 @@ pub fn get_instruction_set() -> Vec<Instruction> {
         Instruction::new("INC E", 0x1C, 0, 4, increment_e),
         Instruction::new("INC H", 0x24, 0, 4, increment_h),
         Instruction::new("INC L", 0x2C, 0, 4, increment_l),
+        Instruction::new("INC BC", 0x03, 0, 8, increment_bc),
+        Instruction::new("INC DE", 0x13, 0, 8, increment_de),
+        Instruction::new("INC HL", 0x23, 0, 8, increment_hl),
+        Instruction::new("INC SP", 0x33, 0, 8, increment_sp),
         // Instruction::new("INC (HL)", 0x34, 0, 12, increment_hl),
 
         Instruction::new("DEC A", 0x3D, 0, 4, decrement_a),
@@ -96,16 +114,31 @@ pub fn get_instruction_set() -> Vec<Instruction> {
         Instruction::new("DEC L", 0x2D, 0, 4, decrement_l),
         // Instruction::new("DEC (HL)", 0x35, 0, 12, decrement_l),
 
+        Instruction::new("CP A", 0xBF, 0, 4, compare_a),
+        Instruction::new("CP B", 0xB8, 0, 4, compare_b),
+        Instruction::new("CP C", 0xB9, 0, 4, compare_c),
+        Instruction::new("CP D", 0xBA, 0, 4, compare_d),
+        Instruction::new("CP E", 0xBB, 0, 4, compare_e),
+        Instruction::new("CP H", 0xBC, 0, 4, compare_h),
+        Instruction::new("CP L", 0xBD, 0, 4, compare_l),
+        Instruction::new("CP (HL)", 0xBE, 0, 8, compare_mem_hl),
+        Instruction::new("CP n", 0xFE, 1, 8, compare_n),
+
         Instruction::new("JP nn", 0xC3, 2, 12, jump_immediate),
+        Instruction::new("JR n", 0x18, 1, 8, jump_pc_plus_byte),        
         Instruction::new("JP NZ,nn", 0x20, 1, 8, jump_not_z_flag),
         Instruction::new("JP Z,nn", 0x28, 1, 8, jump_z_flag),
         Instruction::new("JP NC,nn", 0x30, 1, 8, jump_not_c_flag),
         Instruction::new("JP C,nn", 0x38, 1, 8, jump_c_flag),
 
+        Instruction::new("CALL nn", 0xCD, 2, 12, call_nn),
+
+        Instruction::new("RET", 0xC9, 0, 8, sub_return),
+
         Instruction::new("DI", 0xF3, 0, 4, disable_interrupts),
         Instruction::new("EI", 0xFB, 0, 4, enable_interrupts),
 
-
+        Instruction::new("RLA", 0x17, 0, 4, rotate_left_a),
     ]
 }
 
@@ -113,8 +146,19 @@ fn nop(_: &mut GameBoy, _: u8, _: u8) {
 
 }
 
+fn push_word(gb: &mut GameBoy, value: u16) {
+    gb.cpu.sp -= 2;
+    gb.memory.set_word(gb.cpu.sp, value);
+}
+
+fn pop_word(gb: &mut GameBoy) -> u16 {
+    let result = gb.memory.get_word(gb.cpu.sp);
+    gb.cpu.sp += 2;
+    result
+}
+
 fn jump_immediate(gb: &mut GameBoy, a1: u8, a2: u8) {
-    let new_val = ((a2 as u16) << 8) + (a1 as u16);
+    let new_val = concat_bytes(a2, a1);
     gb.cpu.pc = new_val;
 }
 
@@ -142,10 +186,61 @@ fn jump_c_flag(gb: &mut GameBoy, a1: u8, _: u8) {
     }
 }
 
-// fn call(gb: &mut GameBoy, a1: u8, a2: u8) {
+fn jump_pc_plus_byte(gb: &mut GameBoy, a1: u8, _: u8) {
+    let signed_pc = gb.cpu.pc as i16;
+    gb.cpu.pc = (signed_pc + to_signed_word(a1)) as u16;
+}
 
-//     jump_immediate(gb, a1, a2);
-// }
+fn call_nn(gb: &mut GameBoy, a1: u8, a2: u8) {
+    let pc = gb.cpu.pc;
+    push_word(gb, pc);
+    jump_immediate(gb, a1, a2);
+}
+
+fn sub_return(gb: &mut GameBoy, _: u8, _: u8) {
+    let addr = pop_word(gb);
+    gb.cpu.pc = addr;
+}
+
+fn push_af(gb: &mut GameBoy, _: u8, _: u8) {
+    let val = gb.cpu.af;
+    push_word(gb, val);
+}
+
+fn push_bc(gb: &mut GameBoy, _: u8, _: u8) {
+    let val = gb.cpu.bc;
+    push_word(gb, val);
+}
+
+fn push_de(gb: &mut GameBoy, _: u8, _: u8) {
+    let val = gb.cpu.de;
+    push_word(gb, val);
+}
+
+fn push_hl(gb: &mut GameBoy, _: u8, _: u8) {
+    let val = gb.cpu.hl;
+    push_word(gb, val);
+}
+
+fn pop_af(gb: &mut GameBoy, _: u8, _: u8) {
+    let val = pop_word(gb);
+    gb.cpu.af = val;
+}
+
+fn pop_bc(gb: &mut GameBoy, _: u8, _: u8) {
+    let val = pop_word(gb);
+    gb.cpu.bc = val;
+}
+
+fn pop_de(gb: &mut GameBoy, _: u8, _: u8) {
+    let val = pop_word(gb);
+    gb.cpu.de = val;
+}
+
+fn pop_hl(gb: &mut GameBoy, _: u8, _: u8) {
+    let val = pop_word(gb);
+    gb.cpu.hl = val;
+}
 
 fn increment(getter: fn(&Cpu) -> u8, setter: fn(&mut Cpu, u8), gb: &mut GameBoy) {
     let mut reg_val = getter(&gb.cpu);
@@ -181,6 +276,17 @@ fn decrement(getter: fn(&Cpu) -> u8, setter: fn(&mut Cpu, u8), gb: &mut GameBoy)
     setter(&mut gb.cpu, reg_val);
 }
 
+fn compare(gb: &mut GameBoy, a1: u8, a2: u8) {
+    gb.cpu.flag.subtract = true;
+    if a1 == a2 {
+        gb.cpu.flag.zero = true;
+    } else if a1 > a2 {
+        gb.cpu.flag.half_carry = true;
+    } else if a1 < a2 {
+        gb.cpu.flag.carry = true;
+    }
+}
+
 fn increment_a(gb: &mut GameBoy, _: u8, _: u8) {
     increment(Cpu::get_a, Cpu::set_a, gb);
 }
@@ -207,6 +313,22 @@ fn increment_h(gb: &mut GameBoy, _: u8, _: u8) {
 
 fn increment_l(gb: &mut GameBoy, _: u8, _: u8) {
     increment(Cpu::get_l, Cpu::set_l, gb);
+}
+
+fn increment_bc(gb: &mut GameBoy, _: u8, _: u8) {
+    gb.cpu.bc += 1;
+}
+
+fn increment_de(gb: &mut GameBoy, _: u8, _: u8) {
+    gb.cpu.de += 1;
+}
+
+fn increment_hl(gb: &mut GameBoy, _: u8, _: u8) {
+    gb.cpu.hl += 1;
+}
+
+fn increment_sp(gb: &mut GameBoy, _: u8, _: u8) {
+    gb.cpu.sp += 1;
 }
 
 fn decrement_a(gb: &mut GameBoy, _: u8, _: u8) {
@@ -237,8 +359,73 @@ fn decrement_l(gb: &mut GameBoy, _: u8, _: u8) {
     decrement(Cpu::get_l, Cpu::set_l, gb);
 }
 
-fn load_bc_a(gb: &mut GameBoy, _: u8, _: u8) {
+fn compare_a(gb: &mut GameBoy, _: u8, _: u8) {
+    let a = gb.cpu.get_a();
+    compare(gb, a, a);
+}
+
+fn compare_b(gb: &mut GameBoy, _: u8, _: u8) {
+    let a = gb.cpu.get_a();
+    let val = gb.cpu.get_b();
+    compare(gb, a, val);
+}
+
+fn compare_c(gb: &mut GameBoy, _: u8, _: u8) {
+    let a = gb.cpu.get_a();
+    let val = gb.cpu.get_c();
+    compare(gb, a, val);
+}
+
+fn compare_d(gb: &mut GameBoy, _: u8, _: u8) {
+    let a = gb.cpu.get_a();
+    let val = gb.cpu.get_d();
+    compare(gb, a, val);
+}
+
+fn compare_e(gb: &mut GameBoy, _: u8, _: u8) {
+    let a = gb.cpu.get_a();
+    let val = gb.cpu.get_e();
+    compare(gb, a, val);
+}
+
+fn compare_h(gb: &mut GameBoy, _: u8, _: u8) {
+    let a = gb.cpu.get_a();
+    let val = gb.cpu.get_h();
+    compare(gb, a, val);
+}
+
+fn compare_l(gb: &mut GameBoy, _: u8, _: u8) {
+    let a = gb.cpu.get_a();
+    let val = gb.cpu.get_l();
+    compare(gb, a, val);
+}
+
+fn compare_mem_hl(gb: &mut GameBoy, _: u8, _: u8) {
+    let a = gb.cpu.get_a();
+    let addr = gb.cpu.hl;
+    let val = gb.memory.get_byte(addr);
+    compare(gb, a, val);
+}
+
+fn compare_n(gb: &mut GameBoy, val: u8, _: u8) {
+    let a = gb.cpu.get_a();
+    compare(gb, a, val);
+}
+
+fn load_mem_bc_a(gb: &mut GameBoy, _: u8, _: u8) {
     gb.memory.set_byte(gb.cpu.bc, gb.cpu.get_a());
+}
+
+fn load_mem_de_a(gb: &mut GameBoy, _: u8, _: u8) {
+    gb.memory.set_byte(gb.cpu.de, gb.cpu.get_a());
+}
+
+fn load_mem_hl_a(gb: &mut GameBoy, a1: u8, a2: u8) {
+    gb.memory.set_byte(gb.cpu.hl, gb.cpu.get_a());
+}
+
+fn load_mem_nn_a(gb: &mut GameBoy, a1: u8, a2: u8) {
+    gb.memory.set_byte(concat_bytes(a2, a1), gb.cpu.get_a());
 }
 
 fn load_a_a(gb: &mut GameBoy, _: u8, _: u8) {
@@ -273,6 +460,26 @@ fn load_a_h(gb: &mut GameBoy, _: u8, _: u8) {
 
 fn load_a_l(gb: &mut GameBoy, _: u8, _: u8) {
     let val = gb.cpu.get_l();
+    gb.cpu.set_a(val);
+}
+
+fn load_a_mem_bc(gb: &mut GameBoy, _: u8, _: u8) {
+    let val = gb.memory.get_byte(gb.cpu.bc);
+    gb.cpu.set_a(val);
+}
+
+fn load_a_mem_de(gb: &mut GameBoy, _: u8, _: u8) {
+    let val = gb.memory.get_byte(gb.cpu.de);
+    gb.cpu.set_a(val);
+}
+
+fn load_a_mem_hl(gb: &mut GameBoy, _: u8, _: u8) {
+    let val = gb.memory.get_byte(gb.cpu.hl);
+    gb.cpu.set_a(val);
+}
+
+fn load_a_mem_nn(gb: &mut GameBoy, a1: u8, a2: u8) {
+    let val = gb.memory.get_byte(concat_bytes(a2, a1));
     gb.cpu.set_a(val);
 }
 
@@ -335,19 +542,19 @@ fn load_l_n(gb: &mut GameBoy, a1: u8, _: u8) {
 }
 
 fn load_bc_nn(gb: &mut GameBoy, a1: u8, a2: u8) {
-    gb.cpu.bc = ((a2 as u16) << 8) + (a1 as u16);
+    gb.cpu.bc = concat_bytes(a2, a1);
 }
 
 fn load_de_nn(gb: &mut GameBoy, a1: u8, a2: u8) {
-    gb.cpu.de = ((a2 as u16) << 8) + (a1 as u16);
+    gb.cpu.de = concat_bytes(a2, a1);
 }
 
 fn load_hl_nn(gb: &mut GameBoy, a1: u8, a2: u8) {
-    gb.cpu.hl = ((a2 as u16) << 8) + (a1 as u16);
+    gb.cpu.hl = concat_bytes(a2, a1);
 }
 
 fn load_sp_nn(gb: &mut GameBoy, a1: u8, a2: u8) {
-    gb.cpu.sp = ((a2 as u16) << 8) + (a1 as u16);
+    gb.cpu.sp = concat_bytes(a2, a1);
 }
 
 fn load_ff00_plus_n_with_a(gb: &mut GameBoy, a1: u8, _: u8) {
@@ -360,10 +567,23 @@ fn load_a_with_ff00_plus_n(gb: &mut GameBoy, a1: u8, _: u8) {
     gb.cpu.set_a(val);
 }
 
+fn load_ff00_plus_c_with_a(gb: &mut GameBoy, a1: u8, _: u8) {
+    let a = gb.cpu.get_a();
+    let c = gb.cpu.get_c();
+    gb.memory.set_byte(0xFF00 + (c as u16), a);
+}
+
 fn load_mem_hl_with_a_dec_hl(gb: &mut GameBoy, _: u8, _: u8) {
     let mut hl = gb.cpu.hl;
     gb.memory.set_byte(hl, gb.cpu.get_a());
     hl -= 1;
+    gb.cpu.hl = hl;
+}
+
+fn load_mem_hl_with_a_inc_hl(gb: &mut GameBoy, _: u8, _: u8) {
+    let mut hl = gb.cpu.hl;
+    gb.memory.set_byte(hl, gb.cpu.get_a());
+    hl += 1;
     gb.cpu.hl = hl;
 }
 

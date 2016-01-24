@@ -16,6 +16,11 @@ impl GameBoy {
 
     pub fn power_on(&mut self) {
         self.cpu.power_on();
+        self.memory.power_on();
+    }
+
+    pub fn load_boot_rom(&mut self, boot_buf: &Vec<u8>) {
+        self.memory.load_boot_rom(boot_buf);
     }
 
     pub fn load_rom(&mut self, rom_buf: &Vec<u8>) {
