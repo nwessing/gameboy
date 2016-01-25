@@ -5,6 +5,10 @@ mod game_boy;
 mod util;
 mod memory;
 mod math;
+mod gpu;
+
+#[macro_use]
+extern crate glium;
 
 use std::io;
 use std::io::prelude::*;
@@ -24,6 +28,8 @@ fn main() {
     gb.power_on();
     gb.load_boot_rom(&boot_buf);
     gb.load_rom(&game_buf);
+
+    let mut gpu = gpu::Gpu::new();
 
     loop {        
         let mut opcode = gb.memory.get_byte(gb.cpu.pc);
@@ -58,13 +64,15 @@ fn main() {
             }
             println!("");
 
-            // if gb.cpu.pc >= 0x98 {
+            // if gb.cpu.pc >= 0x40 && gb.cpu.pc < 0x54 {
             //     pause();
             // }
         }
         
         gb.cpu.pc = gb.cpu.pc + arg_len + if use_cb { 2 } else { 1 };
         exec(&mut gb, arg1, arg2);
+
+        gpu.draw_screen(&mut gb);
 
         println!("{}", gb.cpu);
     }

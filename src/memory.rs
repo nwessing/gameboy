@@ -75,8 +75,8 @@ impl Memory {
     }
 
     pub fn get_word(&self, address: u16) -> u16 {
-        let lower = self.mem[address as usize];
-        let upper = self.mem[(address + 1) as usize];
+        let lower = self.get_byte(address);
+        let upper = self.get_byte(address + 1);
         concat_bytes(upper, lower)
     }
 
