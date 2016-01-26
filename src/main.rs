@@ -55,14 +55,14 @@ fn main() {
             arg_len = instruction.operand_length as u16;
             exec = instruction.exec;
 
-            print!("\nExecuting instruction {} ", instruction.name);
-            if arg_len == 1 {
-                print!("0x{:02X}", arg1);
-            }
-            if arg_len == 2 {
-                print!(" 0x{:02X}{:02X}", arg1, arg2);
-            }
-            println!("");
+            // print!("\nExecuting instruction {} ", instruction.name);
+            // if arg_len == 1 {
+            //     print!("0x{:02X}", arg1);
+            // }
+            // if arg_len == 2 {
+            //     print!(" 0x{:02X}{:02X}", arg1, arg2);
+            // }
+            // println!("");
 
             // if gb.cpu.pc >= 0x40 && gb.cpu.pc < 0x54 {
             //     pause();
@@ -74,7 +74,7 @@ fn main() {
 
         gpu.draw_screen(&mut gb);
 
-        println!("{}", gb.cpu);
+        // println!("{}", gb.cpu);
     }
 
 }
