@@ -278,13 +278,9 @@ fn decrement(getter: fn(&Cpu) -> u8, setter: fn(&mut Cpu, u8), gb: &mut GameBoy)
 
 fn compare(gb: &mut GameBoy, a1: u8, a2: u8) {
     gb.cpu.flag.subtract = true;
-    if a1 == a2 {
-        gb.cpu.flag.zero = true;
-    } else if a1 > a2 {
-        gb.cpu.flag.half_carry = true;
-    } else if a1 < a2 {
-        gb.cpu.flag.carry = true;
-    }
+    gb.cpu.flag.zero = a1 == a2;
+    gb.cpu.flag.half_carry = a1 > a2;
+    gb.cpu.flag.carry = a1 < a2;
 }
 
 fn increment_a(gb: &mut GameBoy, _: u8, _: u8) {

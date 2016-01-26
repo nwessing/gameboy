@@ -89,21 +89,22 @@ impl Gpu {
                 let tile_index = gb.memory.get_byte(addr); 
                 // let sprite = gb.memory.get_word(tile_data_addr + ((tile_index as u16) * 2));
 
-                let x_pos = i % 32;
-                let y_pos = i / 32;
+                let y_pos = i % 32;
+                let x_pos = 31 - (i / 32);
 
                 let sprite_offset = (tile_index as u16) * 16;
-                if tile_index > 0 {
-                    let base_addr = sprite_offset + tile_data_addr;
-                    println!("Drawing sprite {:04X} at {},{}", base_addr, x_pos, y_pos);
-                    println!("Sprint data: {:04X}{:04X}{:04X}{:04X}{:04X}{:04X}{:04X}{:04X}", gb.memory.get_word(base_addr), gb.memory.get_word(base_addr+2), gb.memory.get_word(base_addr+4), gb.memory.get_word(base_addr+6), gb.memory.get_word(base_addr+8), gb.memory.get_word(base_addr+10), gb.memory.get_word(base_addr+12), gb.memory.get_word(base_addr+14));
-                }
+                // if tile_index > 0 {
+                //     let base_addr = sprite_offset + tile_data_addr;
+                //     println!("Drawing sprite {:04X} at {},{}", base_addr, x_pos, y_pos);
+                //     println!("Sprint data: {:04X}{:04X}{:04X}{:04X}{:04X}{:04X}{:04X}{:04X}", gb.memory.get_word(base_addr), gb.memory.get_word(base_addr+2), gb.memory.get_word(base_addr+4), gb.memory.get_word(base_addr+6), gb.memory.get_word(base_addr+8), gb.memory.get_word(base_addr+10), gb.memory.get_word(base_addr+12), gb.memory.get_word(base_addr+14));
+                // }
 
                 for x in 0..8 {
                     
-                    let sprite = gb.memory.get_word(tile_data_addr + sprite_offset + (x*2));
+                    let sprite = gb.memory.get_word(tile_data_addr + sprite_offset + (14 - (x*2)));
                     for y in 0..8 {
-                        let color_id = ((sprite >> y) | (sprite >> (y+7))) & 0b11;
+                        let yi = 7 - y;
+                        let color_id = ((sprite >> yi) &0b1) | ((sprite >> (yi+7)) &0b10);
                         let color = match color_id {
                             3 => (0u8, 0u8, 0u8),
                             2 => (90u8, 90u8, 90u8),
