@@ -64,7 +64,7 @@ fn main() {
             // }
             // println!("");
 
-            // if gb.cpu.pc >= 0x27 && gb.cpu.pc < 0x38 {
+            // if gb.cpu.pc >= 0x95 && gb.cpu.pc < 0xA8 {
             //     pause();
             // }
         }

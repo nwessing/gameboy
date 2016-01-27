@@ -3,11 +3,12 @@ use game_boy::GameBoy;
 pub fn rotate_left(gb: &mut GameBoy, val: u8, through: bool) -> u8 {
     gb.cpu.flag.subtract = false;
     gb.cpu.flag.half_carry = false;
-    gb.cpu.flag.carry = val & 0xA0 > 0;
+    let carry = if gb.cpu.flag.carry { 1 } else { 0 };
 
+    gb.cpu.flag.carry = val & 0x80 == 0x80;
 
     let result = if through {
-        val.rotate_left(1)
+        (val << 1) | carry
     } else {
         val << 1
     };
