@@ -5,6 +5,11 @@ use game_boy::GameBoy;
 use glium::texture::texture2d::Texture2d;
 use std::mem;
 
+const LCDC_STATUS_REG: u16 = 0xFF41;
+const LCDC_Y_COORD: u16 = 0xFF44;
+const MODE_FLAG_MASK: u8 = 0b1111_1100;
+
+
 pub struct Gpu {
     window: GlutinFacade
 }
@@ -16,12 +21,49 @@ impl Gpu {
             window: window,
         }
     }
-    pub fn draw_screen(&mut self, gb: &GameBoy) {
-        if gb.cpu.pc >= 0x64 && gb.cpu.pc < 0x69 {
 
+    pub fn update(&mut self, gb: &mut GameBoy) {
+        let frame = 70224;
+        let v_blank = 4560;
+        let mode0 = 203;
+        let mode2 = 80;
+        let mode3 = 173;
+
+        let mut status = gb.memory.get_byte(LCDC_STATUS_REG);
+        let frame_step = gb.clock.current_tick() % frame;
+        if frame_step > 65664 {
+            //VBLANK
+            status = (status & MODE_FLAG_MASK) | 0b01;
         } else {
-            return;
+            let scan_line = (frame_step / 144) as u8;
+            let scan_line_clk = frame_step % 456;
+            if scan_line_clk <= mode0 {
+                //HBLANK
+                status = status & MODE_FLAG_MASK;        
+            } else if scan_line_clk <= mode0 + mode2 {
+                //OAM
+                status = (status & MODE_FLAG_MASK) | 0b10; 
+            } else {
+                //OAM + VRAM
+                status = (status & MODE_FLAG_MASK) | 0b11; 
+            }
+
+            let lcdc_y_coord = gb.memory.get_byte(LCDC_Y_COORD);
+            if scan_line == 0 && lcdc_y_coord != 0 {
+                self.draw_screen(gb);
+            }
+            gb.memory.set_byte(LCDC_Y_COORD, scan_line);
         }
+
+        gb.memory.set_byte(LCDC_STATUS_REG, status);
+    }
+
+    pub fn draw_screen(&mut self, gb: &GameBoy) {
+        // if gb.cpu.pc >= 0x64 && gb.cpu.pc < 0x69 {
+
+        // } else {
+        //     return;
+        // }
 
         let mut target = self.window.draw();
 

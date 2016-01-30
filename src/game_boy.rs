@@ -1,9 +1,11 @@
 use cpu::Cpu;
 use memory::Memory;
+use clock::Clock;
 
 pub struct GameBoy {
     pub cpu: Cpu,
     pub memory: Memory,
+    pub clock: Clock
 }
 
 impl GameBoy {
@@ -11,6 +13,7 @@ impl GameBoy {
         GameBoy {
             cpu: Cpu::new(),
             memory: Memory::new(),
+            clock: Clock::new()
         }
     }
 

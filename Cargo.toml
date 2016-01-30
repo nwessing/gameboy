@@ -5,3 +5,4 @@ authors = ["nwessing <nwessing3@gmail.com>"]
 
 [dependencies]
 glium = "*"
+time = "*"

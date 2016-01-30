@@ -6,9 +6,11 @@ mod util;
 mod memory;
 mod math;
 mod gpu;
+mod clock;
 
 #[macro_use]
 extern crate glium;
+extern crate time;
 
 use std::io;
 use std::io::prelude::*;
@@ -31,6 +33,7 @@ fn main() {
 
     let mut gpu = gpu::Gpu::new();
 
+    gb.clock.start();
     loop {        
         let mut opcode = gb.memory.get_byte(gb.cpu.pc);
         let use_cb = opcode == 0xCB;
@@ -39,7 +42,8 @@ fn main() {
         }
         let arg1 = gb.memory.get_byte(gb.cpu.pc + if use_cb { 2 } else { 1 });
         let arg2 = gb.memory.get_byte(gb.cpu.pc + if use_cb { 3 } else { 2 });
-        let exec;
+        let exec; 
+        let num_cycles;
         let arg_len;
         {
             let instruction = if use_cb {
@@ -54,7 +58,7 @@ fn main() {
             };
             arg_len = instruction.operand_length as u16;
             exec = instruction.exec;
-
+            num_cycles = instruction.cycles;
             // print!("\nExecuting instruction {} ", instruction.name);
             // if arg_len == 1 {
             //     print!("0x{:02X}", arg1);
@@ -71,8 +75,9 @@ fn main() {
         
         gb.cpu.pc = gb.cpu.pc + arg_len + if use_cb { 2 } else { 1 };
         exec(&mut gb, arg1, arg2);
+        gb.clock.tick(num_cycles);
 
-        gpu.draw_screen(&mut gb);
+        gpu.update(&mut gb);
 
         // println!("{}", gb.cpu);
     }
