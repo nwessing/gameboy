@@ -114,6 +114,17 @@ pub fn get_instruction_set() -> Vec<Instruction> {
         Instruction::new("DEC L", 0x2D, 0, 4, decrement_l),
         // Instruction::new("DEC (HL)", 0x35, 0, 12, decrement_l),
 
+        Instruction::new("SUB A", 0x97, 0, 4, subtract_a),
+        Instruction::new("SUB B", 0x90, 0, 4, subtract_b),
+        Instruction::new("SUB C", 0x91, 0, 4, subtract_c),
+        Instruction::new("SUB D", 0x92, 0, 4, subtract_d),
+        Instruction::new("SUB E", 0x93, 0, 4, subtract_e),
+        Instruction::new("SUB H", 0x94, 0, 4, subtract_h),
+        Instruction::new("SUB L", 0x95, 0, 4, subtract_l),
+        // Instruction::new("SUB (HL)", 0x96, 0, 8, subtract_mem_hl),
+        // Instruction::new("SUB n", 0xD6, 1, 8, subtract_n),
+
+
         Instruction::new("CP A", 0xBF, 0, 4, compare_a),
         Instruction::new("CP B", 0xB8, 0, 4, compare_b),
         Instruction::new("CP C", 0xB9, 0, 4, compare_c),
@@ -276,6 +287,18 @@ fn decrement(getter: fn(&Cpu) -> u8, setter: fn(&mut Cpu, u8), gb: &mut GameBoy)
     setter(&mut gb.cpu, reg_val);
 }
 
+fn subtract(gb: &mut GameBoy, to_sub: i8) {
+    let a = gb.cpu.get_a() as i8;
+    let result = a - to_sub;
+    
+    gb.cpu.flag.subtract = true;
+    gb.cpu.flag.zero = result == 0;
+
+    //TODO carry and half carry flags
+
+    gb.cpu.set_a(result as u8);
+}
+
 fn compare(gb: &mut GameBoy, a1: u8, a2: u8) {
     gb.cpu.flag.subtract = true;
     gb.cpu.flag.zero = a1 == a2;
@@ -355,6 +378,40 @@ fn decrement_l(gb: &mut GameBoy, _: u8, _: u8) {
     decrement(Cpu::get_l, Cpu::set_l, gb);
 }
 
+fn subtract_a(gb: &mut GameBoy, _: u8, _: u8) {
+    let to_sub = gb.cpu.get_a() as i8;
+    subtract(gb, to_sub);
+}
+
+fn subtract_b(gb: &mut GameBoy, _: u8, _: u8) {
+    let to_sub = gb.cpu.get_b() as i8;
+    subtract(gb, to_sub);
+}
+
+fn subtract_c(gb: &mut GameBoy, _: u8, _: u8) {
+    let to_sub = gb.cpu.get_c() as i8;
+    subtract(gb, to_sub);
+}
+
+fn subtract_d(gb: &mut GameBoy, _: u8, _: u8) {
+    let to_sub = gb.cpu.get_d() as i8;
+    subtract(gb, to_sub);
+}
+
+fn subtract_e(gb: &mut GameBoy, _: u8, _: u8) {
+    let to_sub = gb.cpu.get_e() as i8;
+    subtract(gb, to_sub);
+}
+
+fn subtract_h(gb: &mut GameBoy, _: u8, _: u8) {
+    let to_sub = gb.cpu.get_h() as i8;
+    subtract(gb, to_sub);
+}
+
+fn subtract_l(gb: &mut GameBoy, _: u8, _: u8) {
+    let to_sub = gb.cpu.get_l() as i8;
+    subtract(gb, to_sub);
+}
 fn compare_a(gb: &mut GameBoy, _: u8, _: u8) {
     let a = gb.cpu.get_a();
     compare(gb, a, a);

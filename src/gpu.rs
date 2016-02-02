@@ -3,22 +3,46 @@ use glium::backend::glutin_backend::GlutinFacade;
 use glium::Surface;
 use game_boy::GameBoy;
 use glium::texture::texture2d::Texture2d;
-use std::mem;
+use time;
 
 const LCDC_STATUS_REG: u16 = 0xFF41;
+const SCROLL_Y_REG: u16 = 0xFF42;
+const SCROLL_X_REG: u16 = 0xFF43;
+const WINDOW_Y_REG: u16 = 0xFF4A;
+const WINDOW_X_REG: u16 = 0xFF4B;
 const LCDC_Y_COORD: u16 = 0xFF44;
 const MODE_FLAG_MASK: u8 = 0b1111_1100;
 
 
 pub struct Gpu {
-    window: GlutinFacade
+    window: GlutinFacade,
+    screen_buf: Vec<Vec<(u8, u8, u8)>>,
+    window_buf: Vec<Vec<(u8, u8, u8)>>,
+    last_frame_time: u64    
 }
 
 impl Gpu {
     pub fn new() -> Gpu {
         let window = create_window();
+        let mut screen_buf: Vec<Vec<(u8, u8, u8)>> = Vec::new();
+        for x in 0..256 {
+            screen_buf.push(Vec::<(u8, u8, u8)>::new());
+            for y in 0..256 {
+                screen_buf[x].push((255u8, 0u8, 0u8));
+            } 
+        }
+        let mut window_buf: Vec<Vec<(u8, u8, u8)>> = Vec::new();
+        for iy in 0..144 {
+            window_buf.push(Vec::<(u8, u8, u8)>::new());
+            for ix in 0..160 {
+                window_buf[iy as usize].push((255u8, 0u8, 0u8));
+            } 
+        }
         Gpu {
             window: window,
+            screen_buf: screen_buf,
+            window_buf: window_buf,
+            last_frame_time: 0
         }
     }
 
@@ -51,6 +75,9 @@ impl Gpu {
             let lcdc_y_coord = gb.memory.get_byte(LCDC_Y_COORD);
             if scan_line == 0 && lcdc_y_coord != 0 {
                 self.draw_screen(gb);
+                // let frame_time = time::precise_time_ns() - self.last_frame_time;
+                // println!("Frame time was {}ms", frame_time / 1_000_000);
+                // self.last_frame_time = time::precise_time_ns();
             }
             gb.memory.set_byte(LCDC_Y_COORD, scan_line);
         }
@@ -59,12 +86,6 @@ impl Gpu {
     }
 
     pub fn draw_screen(&mut self, gb: &GameBoy) {
-        // if gb.cpu.pc >= 0x64 && gb.cpu.pc < 0x69 {
-
-        // } else {
-        //     return;
-        // }
-
         let mut target = self.window.draw();
 
         let num_tiles = 1024;
@@ -72,13 +93,10 @@ impl Gpu {
         let tile_data_addr = if tile_data(gb) == 1 { 0x8000 } else { 0x8800 };
         let bg_palette = bg_palette(gb);
 
-        let mut screen_buf: Vec<Vec<(u8, u8, u8)>> = Vec::new();
-        for x in 0..256 {
-            screen_buf.push(Vec::<(u8, u8, u8)>::new());
-            for y in 0..256 {
-                screen_buf[x].push((255u8, 0u8, 0u8));
-            } 
-        }
+        let scroll_y = 255 - gb.memory.get_byte(SCROLL_Y_REG);
+        let scroll_x = gb.memory.get_byte(SCROLL_X_REG);
+
+        let start = time::precise_time_ns();
 
         for i in 0..num_tiles {
             let addr = tile_map_addr + i;
@@ -87,11 +105,6 @@ impl Gpu {
             let y_pos = 31 - (i / 32);
 
             let sprite_offset = (tile_index as u16) * 16;
-            // if tile_index > 0 {
-            //     let base_addr = sprite_offset + tile_data_addr;
-            //     println!("Drawing sprite {:04X} at {},{}", base_addr, x_pos, y_pos);
-            //     println!("Sprint data: {:04X}{:04X}{:04X}{:04X}{:04X}{:04X}{:04X}{:04X}", gb.memory.get_word(base_addr), gb.memory.get_word(base_addr+2), gb.memory.get_word(base_addr+4), gb.memory.get_word(base_addr+6), gb.memory.get_word(base_addr+8), gb.memory.get_word(base_addr+10), gb.memory.get_word(base_addr+12), gb.memory.get_word(base_addr+14));
-            // }
 
             for y in 0..8 {
                 let sprite = gb.memory.get_word(tile_data_addr + sprite_offset + (14 - (y*2)));
@@ -100,12 +113,26 @@ impl Gpu {
                     let palette_index = ((sprite >> xi) &0b1) | ((sprite >> (xi+7)) &0b10);
                     let color_id = get_palette_color(bg_palette, palette_index as u8);
                     let color = get_color(color_id);
-                    screen_buf[((y_pos * 8) + y) as usize][((x_pos * 8) + x) as usize] = color;
+                    self.screen_buf[((y_pos * 8) + y) as usize][((x_pos * 8) + x) as usize] = color;
                 }
             }
         }
 
-        let texture = glium::Texture2d::new(&self.window, screen_buf).unwrap();
+        for iy in 0..144 {
+            let mut y = ((iy as u16) + (111u16 + scroll_y as u16)) as usize;
+            if y > 255 {
+                y = y - 255;
+            }
+            for ix in 0..160 {
+                let mut x = (ix + scroll_x) as usize;
+                if x > 255 {
+                    x = 255 - x;
+                }
+                self.window_buf[iy as usize][ix as usize] = self.screen_buf[y][x];
+            } 
+        }
+
+        let texture = glium::Texture2d::new(&self.window, self.window_buf.clone()).unwrap();
         texture.as_surface().fill(&target, glium::uniforms::MagnifySamplerFilter::Nearest);
         
         target.finish().unwrap();
