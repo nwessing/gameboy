@@ -72,13 +72,26 @@ fn main() {
                 println!("");
                 pause();
             }
-
-
-
         }
         
+        let pc = gb.cpu.pc;
         gb.cpu.pc = gb.cpu.pc + arg_len + if use_cb { 2 } else { 1 };
+        let prev = gb.cpu.get_a();
         exec(&mut gb, arg1, arg2);
+
+        if gb.cpu.pc == 0x6841 {
+            pause();
+        }
+        
+        // if gb.cpu.get_a() == 0x20 && prev != 0x20 {
+        //     println!("Just executed {:02X} arg:{:02x}, pc = {:04X}\n{}, prev was{:02X}", opcode, arg1, pc, gb.cpu, prev);
+        //     // debug_mode = true;
+        //     pause();
+        // }
+
+        // if pc == 0x29D4 {
+        //     println!("29D4 reached");
+        // }
         
         // if gb.cpu.pc == 0x02FA {
         //     debug_mode = true;

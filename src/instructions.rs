@@ -48,11 +48,24 @@ pub fn get_instruction_set() -> Vec<Instruction> {
         Instruction::new("LD A,(HL)", 0x7E, 0, 8, load_a_mem_hl),
         Instruction::new("LD A,(nn)", 0xFA, 2, 16, load_a_mem_nn),
         Instruction::new("LD A,n", 0x3E, 1, 8, load_a_n),
-
         Instruction::new("LD B,A", 0x47, 0, 4, load_b_a),
         Instruction::new("LD C,A", 0x4F, 0, 4, load_c_a),
         Instruction::new("LD D,A", 0x57, 0, 4, load_d_a),
+        Instruction::new("LD D,B", 0x50, 0, 4, load_d_b),
+        Instruction::new("LD D,C", 0x51, 0, 4, load_d_c),
+        Instruction::new("LD D,D", 0x52, 0, 4, load_d_d),
+        Instruction::new("LD D,E", 0x53, 0, 4, load_d_e),
+        Instruction::new("LD D,H", 0x54, 0, 4, load_d_h),
+        Instruction::new("LD D,L", 0x55, 0, 4, load_d_l),
+        Instruction::new("LD D,(HL)", 0x56, 0, 8, load_d_mem_hl),
         Instruction::new("LD E,A", 0x5F, 0, 4, load_e_a),
+        Instruction::new("LD E,B", 0x58, 0, 4, load_e_b),
+        Instruction::new("LD E,C", 0x59, 0, 4, load_e_c),
+        Instruction::new("LD E,D", 0x5A, 0, 4, load_e_d),
+        Instruction::new("LD E,E", 0x5B, 0, 4, load_e_e),
+        Instruction::new("LD E,H", 0x5C, 0, 4, load_e_h),
+        Instruction::new("LD E,L", 0x5D, 0, 4, load_e_l),
+        Instruction::new("LD E,(HL)", 0x5E, 0, 8, load_e_mem_hl),
         Instruction::new("LD H,A", 0x67, 0, 4, load_h_a),
         Instruction::new("LD L,A", 0x6f, 0, 4, load_l_a),
         Instruction::new("LD (BC),A", 0x02, 0, 8, load_mem_bc_a),
@@ -191,6 +204,7 @@ pub fn get_instruction_set() -> Vec<Instruction> {
         Instruction::new("JP Z,nn", 0x28, 1, 8, jump_z_flag),
         Instruction::new("JP NC,nn", 0x30, 1, 8, jump_not_c_flag),
         Instruction::new("JP C,nn", 0x38, 1, 8, jump_c_flag),
+        Instruction::new("JP (HL)", 0xE9, 0, 4, jump_hl),
 
         Instruction::new("CALL nn", 0xCD, 2, 12, call_nn),
 
@@ -261,6 +275,11 @@ fn jump_c_flag(gb: &mut GameBoy, a1: u8, _: u8) {
 fn jump_pc_plus_byte(gb: &mut GameBoy, a1: u8, _: u8) {
     let signed_pc = gb.cpu.pc as i16;
     gb.cpu.pc = (signed_pc + to_signed_word(a1)) as u16;
+}
+
+fn jump_hl(gb: &mut GameBoy, _: u8, _: u8) {
+    let hl = gb.cpu.hl;
+    gb.cpu.pc = hl;
 }
 
 fn call_nn(gb: &mut GameBoy, a1: u8, a2: u8) {
@@ -739,8 +758,78 @@ fn load_d_a(gb: &mut GameBoy, _: u8, _: u8) {
     gb.cpu.set_d(val);
 }
 
+fn load_d_b(gb: &mut GameBoy, _: u8, _: u8) {
+    let val = gb.cpu.get_b();
+    gb.cpu.set_d(val);
+}
+
+fn load_d_c(gb: &mut GameBoy, _: u8, _: u8) {
+    let val = gb.cpu.get_c();
+    gb.cpu.set_d(val);
+}
+
+fn load_d_d(gb: &mut GameBoy, _: u8, _: u8) {
+    let val = gb.cpu.get_d();
+    gb.cpu.set_d(val);
+}
+
+fn load_d_e(gb: &mut GameBoy, _: u8, _: u8) {
+    let val = gb.cpu.get_e();
+    gb.cpu.set_d(val);
+}
+
+fn load_d_h(gb: &mut GameBoy, _: u8, _: u8) {
+    let val = gb.cpu.get_h();
+    gb.cpu.set_d(val);
+}
+
+fn load_d_l(gb: &mut GameBoy, _: u8, _: u8) {
+    let val = gb.cpu.get_l();
+    gb.cpu.set_d(val);
+}
+
+fn load_d_mem_hl(gb: &mut GameBoy, _: u8, _: u8) {
+    let val = gb.memory.get_byte(gb.cpu.hl);
+    gb.cpu.set_d(val);
+}
+
 fn load_e_a(gb: &mut GameBoy, _: u8, _: u8) {
     let val = gb.cpu.get_a();
+    gb.cpu.set_e(val);
+}
+
+fn load_e_b(gb: &mut GameBoy, _: u8, _: u8) {
+    let val = gb.cpu.get_b();
+    gb.cpu.set_e(val);
+}
+
+fn load_e_c(gb: &mut GameBoy, _: u8, _: u8) {
+    let val = gb.cpu.get_c();
+    gb.cpu.set_e(val);
+}
+
+fn load_e_d(gb: &mut GameBoy, _: u8, _: u8) {
+    let val = gb.cpu.get_d();
+    gb.cpu.set_e(val);
+}
+
+fn load_e_e(gb: &mut GameBoy, _: u8, _: u8) {
+    let val = gb.cpu.get_e();
+    gb.cpu.set_e(val);
+}
+
+fn load_e_h(gb: &mut GameBoy, _: u8, _: u8) {
+    let val = gb.cpu.get_h();
+    gb.cpu.set_e(val);
+}
+
+fn load_e_l(gb: &mut GameBoy, _: u8, _: u8) {
+    let val = gb.cpu.get_l();
+    gb.cpu.set_e(val);
+}
+
+fn load_e_mem_hl(gb: &mut GameBoy, _: u8, _: u8) {
+    let val = gb.memory.get_byte(gb.cpu.hl);
     gb.cpu.set_e(val);
 }
 

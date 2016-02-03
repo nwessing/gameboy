@@ -55,11 +55,11 @@ impl Gpu {
 
         let mut status = gb.memory.get_byte(LCDC_STATUS_REG);
         let frame_step = gb.clock.current_tick() % frame;
+        let scan_line = (frame_step / 456) as u8;
         if frame_step > 65664 {
             //VBLANK
             status = (status & MODE_FLAG_MASK) | 0b01;
         } else {
-            let scan_line = (frame_step / 144) as u8;
             let scan_line_clk = frame_step % 456;
             if scan_line_clk <= mode0 {
                 //HBLANK
@@ -79,9 +79,8 @@ impl Gpu {
                 // println!("Frame time was {}ms", frame_time / 1_000_000);
                 // self.last_frame_time = time::precise_time_ns();
             }
-            gb.memory.set_byte(LCDC_Y_COORD, scan_line);
         }
-
+        gb.memory.set_byte(LCDC_Y_COORD, scan_line);
         gb.memory.set_byte(LCDC_STATUS_REG, status);
     }
 
@@ -90,7 +89,6 @@ impl Gpu {
 
         let num_tiles = 1024;
         let tile_map_addr = if window_tile_map(gb) == 1 { 0x9C00 } else { 0x9800 };
-        let tile_data_addr = if tile_data(gb) == 1 { 0x8000 } else { 0x8800 };
         let bg_palette = bg_palette(gb);
 
         let scroll_y = 255 - gb.memory.get_byte(SCROLL_Y_REG);
@@ -104,10 +102,10 @@ impl Gpu {
             let x_pos = i % 32;
             let y_pos = 31 - (i / 32);
 
-            let sprite_offset = (tile_index as u16) * 16;
+            let sprite_addr = get_sprite_addr(gb, tile_index);
 
             for y in 0..8 {
-                let sprite = gb.memory.get_word(tile_data_addr + sprite_offset + (14 - (y*2)));
+                let sprite = gb.memory.get_word(sprite_addr + (14 - (y*2)));
                 for x in 0..8 {
                     let xi = 7 - x;
                     let palette_index = ((sprite >> xi) &0b1) | ((sprite >> (xi+7)) &0b10);
@@ -153,6 +151,16 @@ fn bg_palette(gb: &GameBoy) -> u8 {
 
 fn tile_data(gb: &GameBoy) -> u8 {
     gb.memory.get_byte(0xFF40) >> 4 &0b1
+}
+
+fn get_sprite_addr(gb: &GameBoy, tile_index: u8) -> u16{
+    // if tile_data(gb) == 1 {
+        0x8000 + ((tile_index as u16) * 16)
+    // } else {
+        // let signed_index = tile_index as i8;
+
+        // (0x9000i32 + (signed_index as i32)) as u16
+    // }
 }
 
 fn get_color(color_id: u8) -> (u8, u8, u8) {

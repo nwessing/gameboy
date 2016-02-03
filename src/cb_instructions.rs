@@ -31,6 +31,8 @@ pub fn get_cb_instruction_set() -> Vec<Instruction> {
         Instruction::new("BIT 5,H", 0x6C, 0, 8, test_bit_5_h),
         Instruction::new("BIT 6,H", 0x74, 0, 8, test_bit_6_h),
         Instruction::new("BIT 7,H", 0x7C, 0, 8, test_bit_7_h),
+
+        Instruction::new("RES 0,A", 0x87, 0, 8, reset_bit_0_a),
     ]
 }
 
@@ -50,6 +52,21 @@ fn test_bit(gb: &mut GameBoy, val: u8, bit: u8) {
     gb.cpu.flag.subtract = false;
     gb.cpu.flag.half_carry = true;
     gb.cpu.flag.zero = val & mask == 0;
+}
+
+fn reset_bit(value: u8, bit: u8) -> u8 {
+    let mask = match bit {
+        0 => 0b11111110,
+        1 => 0b11111101,
+        2 => 0b11111011,
+        3 => 0b11110111,
+        4 => 0b11101111,
+        5 => 0b11011111,
+        6 => 0b10111111,
+        7 => 0b01111111,
+        _ => panic!("sdfaadsf")
+    };
+    value & mask
 }
 
 fn swap(gb: &mut GameBoy, value: u8) -> u8 {
@@ -164,6 +181,11 @@ fn swap_mem_hl(gb: &mut GameBoy, _: u8, _: u8) {
     let value = gb.memory.get_byte(gb.cpu.hl);
     let result = swap(gb, value);
     gb.memory.set_byte(gb.cpu.hl, result);
+}
+
+fn reset_bit_0_a(gb: &mut GameBoy, _: u8, _: u8) {
+    let a = gb.cpu.get_a();
+    gb.cpu.set_a(reset_bit(a, 0));
 }
 
 fn test_bit_0_h(gb: &mut GameBoy, _: u8, _: u8) {
