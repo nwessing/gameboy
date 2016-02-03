@@ -57,7 +57,16 @@ pub fn get_instruction_set() -> Vec<Instruction> {
         Instruction::new("LD L,A", 0x6f, 0, 4, load_l_a),
         Instruction::new("LD (BC),A", 0x02, 0, 8, load_mem_bc_a),
         Instruction::new("LD (DE),A", 0x12, 0, 8, load_mem_de_a),
+        
         Instruction::new("LD (HL),A", 0x77, 0, 8, load_mem_hl_a),
+        Instruction::new("LD (HL),B", 0x70, 0, 8, load_mem_hl_b),
+        Instruction::new("LD (HL),C", 0x71, 0, 8, load_mem_hl_c),
+        Instruction::new("LD (HL),D", 0x72, 0, 8, load_mem_hl_d),
+        Instruction::new("LD (HL),E", 0x73, 0, 8, load_mem_hl_e),
+        Instruction::new("LD (HL),H", 0x74, 0, 8, load_mem_hl_h),
+        Instruction::new("LD (HL),L", 0x75, 0, 8, load_mem_hl_l),
+        Instruction::new("LD (HL),n", 0x36, 1, 12, load_mem_hl_n),
+        
         Instruction::new("LD (nn),A", 0xEA, 2, 16, load_mem_nn_a),
 
         Instruction::new("LD BC,nn", 0x01, 2, 12, load_bc_nn),
@@ -67,6 +76,8 @@ pub fn get_instruction_set() -> Vec<Instruction> {
 
         Instruction::new("LD (HL),A; DEC HL", 0x32, 0, 8, load_mem_hl_with_a_dec_hl),
         Instruction::new("LD (HL),A; INC HL", 0x22, 0, 8, load_mem_hl_with_a_inc_hl),
+
+        Instruction::new("LD A,(HL); INC HL", 0x2A, 0, 8, load_a_with_mem_hl_inc_hl),
 
         Instruction::new("LD (0xFF00 + n),A", 0xE0, 1, 12, load_ff00_plus_n_with_a),
         Instruction::new("LD A,(0xFF00 + n)", 0xF0, 1, 12, load_a_with_ff00_plus_n),
@@ -81,6 +92,26 @@ pub fn get_instruction_set() -> Vec<Instruction> {
         Instruction::new("POP BC", 0xC1, 0, 12, pop_bc),
         Instruction::new("POP DE", 0xD1, 0, 12, pop_de),
         Instruction::new("POP HL", 0xE1, 0, 12, pop_hl),
+
+        Instruction::new("AND A", 0xA7, 0, 4, and_a),
+        Instruction::new("AND B", 0xA0, 0, 4, and_b),
+        Instruction::new("AND C", 0xA1, 0, 4, and_c),
+        Instruction::new("AND D", 0xA2, 0, 4, and_d),
+        Instruction::new("AND E", 0xA3, 0, 4, and_e),
+        Instruction::new("AND H", 0xA4, 0, 4, and_h),
+        Instruction::new("AND L", 0xA5, 0, 4, and_l),
+        Instruction::new("AND (HL)", 0xA6, 0, 8, and_mem_hl),
+        Instruction::new("AND n", 0xE6, 1, 8, and_n),
+
+        Instruction::new("OR A", 0xB7, 0, 4, or_a),
+        Instruction::new("OR B", 0xB0, 0, 4, or_b),
+        Instruction::new("OR C", 0xB1, 0, 4, or_c),
+        Instruction::new("OR D", 0xB2, 0, 4, or_d),
+        Instruction::new("OR E", 0xB3, 0, 4, or_e),
+        Instruction::new("OR H", 0xB4, 0, 4, or_h),
+        Instruction::new("OR L", 0xB5, 0, 4, or_l),
+        Instruction::new("OR (HL)", 0xB6, 0, 8, or_mem_hl),
+        Instruction::new("OR n", 0xF6, 1, 8, or_n),
 
         Instruction::new("XOR A", 0xAF, 0, 4, xor_a),
         Instruction::new("XOR B", 0xA8, 0, 4, xor_b),
@@ -112,7 +143,26 @@ pub fn get_instruction_set() -> Vec<Instruction> {
         Instruction::new("DEC E", 0x1D, 0, 4, decrement_e),
         Instruction::new("DEC H", 0x25, 0, 4, decrement_h),
         Instruction::new("DEC L", 0x2D, 0, 4, decrement_l),
+        Instruction::new("DEC BC", 0x0B, 0, 8, decrement_bc),
+        Instruction::new("DEC DE", 0x1B, 0, 8, decrement_de),
+        Instruction::new("DEC HL", 0x2B, 0, 8, decrement_hl),
+        Instruction::new("DEC SP", 0x3B, 0, 8, decrement_sp),
+
         // Instruction::new("DEC (HL)", 0x35, 0, 12, decrement_l),
+
+        Instruction::new("ADD A", 0x87, 0, 4, add_a),
+        Instruction::new("ADD B", 0x80, 0, 4, add_b),
+        Instruction::new("ADD C", 0x81, 0, 4, add_c),
+        Instruction::new("ADD D", 0x82, 0, 4, add_d),
+        Instruction::new("ADD E", 0x83, 0, 4, add_e),
+        Instruction::new("ADD H", 0x84, 0, 4, add_h),
+        Instruction::new("ADD L", 0x85, 0, 4, add_l),
+        Instruction::new("ADD (HL)", 0x86, 0, 8, add_mem_hl),
+        Instruction::new("ADD n", 0xC6, 1, 8, add_n),
+        Instruction::new("ADD HL,BC", 0x09, 0, 8, add_hl_bc),
+        Instruction::new("ADD HL,DE", 0x19, 0, 8, add_hl_de),
+        Instruction::new("ADD HL,HL", 0x29, 0, 8, add_hl_hl),
+        Instruction::new("ADD HL,SP", 0x39, 0, 8, add_hl_sp),        
 
         Instruction::new("SUB A", 0x97, 0, 4, subtract_a),
         Instruction::new("SUB B", 0x90, 0, 4, subtract_b),
@@ -150,6 +200,17 @@ pub fn get_instruction_set() -> Vec<Instruction> {
         Instruction::new("EI", 0xFB, 0, 4, enable_interrupts),
 
         Instruction::new("RLA", 0x17, 0, 4, rotate_left_a),
+
+        Instruction::new("CPL", 0x2F, 0, 4, complement_a),
+
+        Instruction::new("RST 0x00", 0xC7, 0, 32, restart_00),
+        Instruction::new("RST 0x08", 0xCF, 0, 32, restart_08),
+        Instruction::new("RST 0x10", 0xD7, 0, 32, restart_10),
+        Instruction::new("RST 0x18", 0xDF, 0, 32, restart_18),
+        Instruction::new("RST 0x20", 0xE7, 0, 32, restart_20),
+        Instruction::new("RST 0x28", 0xEF, 0, 32, restart_28),
+        Instruction::new("RST 0x30", 0xF7, 0, 32, restart_30),
+        Instruction::new("RST 0x38", 0xFF, 0, 32, restart_38),
     ]
 }
 
@@ -253,85 +314,96 @@ fn pop_hl(gb: &mut GameBoy, _: u8, _: u8) {
     gb.cpu.hl = val;
 }
 
-fn increment(getter: fn(&Cpu) -> u8, setter: fn(&mut Cpu, u8), gb: &mut GameBoy) {
-    let mut reg_val = getter(&gb.cpu);
-
-    if reg_val == 0xFF {
-        gb.cpu.flag.zero = true;
-        gb.cpu.flag.half_carry = true;
-        reg_val = 0;
+fn add(getter: fn(&Cpu) -> u8, setter: fn(&mut Cpu, u8), value: u8, gb: &mut GameBoy) {
+    let reg_val = getter(&gb.cpu) as u16;
+    
+    let mut result = reg_val + (value as u16);
+    if result > 255 {
+        result -= 256;
+        gb.cpu.flag.carry = true;
     } else {
-        gb.cpu.flag.zero = false;
-        gb.cpu.flag.half_carry = false;
-        reg_val += 1;
+        gb.cpu.flag.carry = false;
+    }
+
+    gb.cpu.flag.half_carry = (((reg_val as u8) & 0x0F) + (value & 0x0F)) & 0x10 == 0x10; 
+    gb.cpu.flag.zero = result == 0;
+    gb.cpu.flag.subtract = false;
+    setter(&mut gb.cpu, result as u8);
+}
+
+fn add_word(gb: &mut GameBoy, value: u16, arg: u16) -> u16 {
+    let mut result = (value as u32) + (arg as u32);
+    if result > 65535 {
+        result -= 65536;
+        gb.cpu.flag.carry = true;
+    } else {
+        gb.cpu.flag.carry = false;
     }
 
     gb.cpu.flag.subtract = false;
-    setter(&mut gb.cpu, reg_val);
+    gb.cpu.flag.half_carry = ((value & 0xFFF) + (arg & 0xFFF)) & 0x1000 == 0x1000;
+
+    result as u16
 }
 
-fn decrement(getter: fn(&Cpu) -> u8, setter: fn(&mut Cpu, u8), gb: &mut GameBoy) {
-    let mut reg_val = getter(&gb.cpu);
-
-    if reg_val == 0x00 {
-        gb.cpu.flag.half_carry = true;
-        reg_val = 0xFF;
+fn subtract(getter: fn(&Cpu) -> u8, setter: fn(&mut Cpu, u8), value: u8, gb: &mut GameBoy)  {
+    let reg_val = getter(&gb.cpu) as i16;
+    
+    let mut result = reg_val - (value as i16);
+    if result < 0 {
+        result += 256;
+        gb.cpu.flag.carry = true;
     } else {
-        gb.cpu.flag.half_carry = false;
-        reg_val -= 1;
+        gb.cpu.flag.carry = false;
     }
 
-    gb.cpu.flag.zero = reg_val == 0;
-
+    gb.cpu.flag.half_carry = (value & 0x0F) > ((reg_val as u8) & 0x0F); 
+    gb.cpu.flag.zero = result == 0;
     gb.cpu.flag.subtract = true;
-    setter(&mut gb.cpu, reg_val);
+    setter(&mut gb.cpu, result as u8);
 }
 
-fn subtract(gb: &mut GameBoy, to_sub: i8) {
-    let a = gb.cpu.get_a() as i8;
-    let result = a - to_sub;
-    
-    gb.cpu.flag.subtract = true;
-    gb.cpu.flag.zero = result == 0;
-
-    //TODO carry and half carry flags
-
-    gb.cpu.set_a(result as u8);
+fn subtract_word(value: u16, arg: u16) -> u16 {
+    let mut result = (value as i32) - (arg as i32);
+    if result < 0 {
+        result += 65536;
+    }
+    result as u16
 }
 
 fn compare(gb: &mut GameBoy, a1: u8, a2: u8) {
     gb.cpu.flag.subtract = true;
     gb.cpu.flag.zero = a1 == a2;
-    gb.cpu.flag.half_carry = a1 > a2;
+    gb.cpu.flag.half_carry = (a2 & 0x0F) > (a1 & 0x0F);
     gb.cpu.flag.carry = a1 < a2;
 }
 
 fn increment_a(gb: &mut GameBoy, _: u8, _: u8) {
-    increment(Cpu::get_a, Cpu::set_a, gb);
+    add(Cpu::get_a, Cpu::set_a, 1, gb);
 }
 
 fn increment_b(gb: &mut GameBoy, _: u8, _: u8) {
-    increment(Cpu::get_b, Cpu::set_b, gb);
+    add(Cpu::get_b, Cpu::set_b, 1, gb);
 }
 
 fn increment_c(gb: &mut GameBoy, _: u8, _: u8) {
-    increment(Cpu::get_c, Cpu::set_c, gb);
+    add(Cpu::get_c, Cpu::set_c, 1, gb);
 }
 
 fn increment_d(gb: &mut GameBoy, _: u8, _: u8) {
-    increment(Cpu::get_d, Cpu::set_d, gb);
+    add(Cpu::get_d, Cpu::set_d, 1, gb);
 }
 
 fn increment_e(gb: &mut GameBoy, _: u8, _: u8) {
-    increment(Cpu::get_e, Cpu::set_e, gb);
+    add(Cpu::get_e, Cpu::set_e, 1, gb);
 }
 
 fn increment_h(gb: &mut GameBoy, _: u8, _: u8) {
-    increment(Cpu::get_h, Cpu::set_h, gb);
+    add(Cpu::get_h, Cpu::set_h, 1, gb);
 }
 
 fn increment_l(gb: &mut GameBoy, _: u8, _: u8) {
-    increment(Cpu::get_l, Cpu::set_l, gb);
+    add(Cpu::get_l, Cpu::set_l, 1, gb);
 }
 
 fn increment_bc(gb: &mut GameBoy, _: u8, _: u8) {
@@ -350,68 +422,156 @@ fn increment_sp(gb: &mut GameBoy, _: u8, _: u8) {
     gb.cpu.sp += 1;
 }
 
+fn add_a(gb: &mut GameBoy, _: u8, _: u8) {
+    let to_add = gb.cpu.get_a();
+    add(Cpu::get_a, Cpu::set_a, to_add, gb);
+}
+
+fn add_b(gb: &mut GameBoy, _: u8, _: u8) {
+    let to_add = gb.cpu.get_b();
+    add(Cpu::get_a, Cpu::set_a, to_add, gb);
+}
+
+fn add_c(gb: &mut GameBoy, _: u8, _: u8) {
+    let to_add = gb.cpu.get_c();
+    add(Cpu::get_a, Cpu::set_a, to_add, gb);
+}
+
+fn add_d(gb: &mut GameBoy, _: u8, _: u8) {
+    let to_add = gb.cpu.get_d();
+    add(Cpu::get_a, Cpu::set_a, to_add, gb);
+}
+
+fn add_e(gb: &mut GameBoy, _: u8, _: u8) {
+    let to_add = gb.cpu.get_e();
+    add(Cpu::get_a, Cpu::set_a, to_add, gb);
+}
+
+fn add_h(gb: &mut GameBoy, _: u8, _: u8) {
+    let to_add = gb.cpu.get_h();
+    add(Cpu::get_a, Cpu::set_a, to_add, gb);
+}
+
+fn add_l(gb: &mut GameBoy, _: u8, _: u8) {
+    let to_add = gb.cpu.get_l();
+    add(Cpu::get_a, Cpu::set_a, to_add, gb);
+}
+
+fn add_n(gb: &mut GameBoy, to_add: u8, _: u8) {
+    add(Cpu::get_a, Cpu::set_a, to_add, gb);
+}
+
+fn add_mem_hl(gb: &mut GameBoy, _: u8, _: u8) {
+    let to_add = gb.memory.get_byte(gb.cpu.hl);
+    add(Cpu::get_a, Cpu::set_a, to_add, gb);
+}
+
+fn add_hl_bc(gb: &mut GameBoy, _: u8, _: u8) {
+    let hl = gb.cpu.hl;
+    let arg = gb.cpu.bc;
+    gb.cpu.hl = add_word(gb, hl, arg);
+}
+
+fn add_hl_de(gb: &mut GameBoy, _: u8, _: u8) {
+    let hl = gb.cpu.hl;
+    let arg = gb.cpu.de;
+    gb.cpu.hl = add_word(gb, hl, arg);
+}
+
+fn add_hl_hl(gb: &mut GameBoy, _: u8, _: u8) {
+    let hl = gb.cpu.hl;
+    gb.cpu.hl = add_word(gb, hl, hl);
+}
+
+fn add_hl_sp(gb: &mut GameBoy, _: u8, _: u8) {
+    let hl = gb.cpu.hl;
+    let arg = gb.cpu.sp;
+    gb.cpu.hl = add_word(gb, hl, arg);
+}
+
 fn decrement_a(gb: &mut GameBoy, _: u8, _: u8) {
-    decrement(Cpu::get_a, Cpu::set_a, gb);
+    subtract(Cpu::get_a, Cpu::set_a, 1, gb);
 }
 
 fn decrement_b(gb: &mut GameBoy, _: u8, _: u8) {
-    decrement(Cpu::get_b, Cpu::set_b, gb);
+    subtract(Cpu::get_b, Cpu::set_b, 1, gb);
 }
 
 fn decrement_c(gb: &mut GameBoy, _: u8, _: u8) {
-    decrement(Cpu::get_c, Cpu::set_c, gb);
+    subtract(Cpu::get_c, Cpu::set_c, 1, gb);
 }
 
 fn decrement_d(gb: &mut GameBoy, _: u8, _: u8) {
-    decrement(Cpu::get_d, Cpu::set_d, gb);
+    subtract(Cpu::get_d, Cpu::set_d, 1, gb);
 }
 
 fn decrement_e(gb: &mut GameBoy, _: u8, _: u8) {
-    decrement(Cpu::get_e, Cpu::set_e, gb);
+    subtract(Cpu::get_e, Cpu::set_e, 1, gb);
 }
 
 fn decrement_h(gb: &mut GameBoy, _: u8, _: u8) {
-    decrement(Cpu::get_h, Cpu::set_h, gb);
+    subtract(Cpu::get_h, Cpu::set_h, 1, gb);
 }
 
 fn decrement_l(gb: &mut GameBoy, _: u8, _: u8) {
-    decrement(Cpu::get_l, Cpu::set_l, gb);
+    subtract(Cpu::get_l, Cpu::set_l, 1, gb);
+}
+
+fn decrement_bc(gb: &mut GameBoy, _: u8, _: u8) {
+    let result = subtract_word(gb.cpu.bc, 1);
+    gb.cpu.bc = result;
+}
+
+fn decrement_de(gb: &mut GameBoy, _: u8, _: u8) {
+    let result = subtract_word(gb.cpu.de, 1);
+    gb.cpu.de = result;
+}
+
+fn decrement_hl(gb: &mut GameBoy, _: u8, _: u8) {
+    let result = subtract_word(gb.cpu.hl, 1);
+    gb.cpu.hl = result;
+}
+
+fn decrement_sp(gb: &mut GameBoy, _: u8, _: u8) {
+    let result = subtract_word(gb.cpu.sp, 1);
+    gb.cpu.sp = result;
 }
 
 fn subtract_a(gb: &mut GameBoy, _: u8, _: u8) {
-    let to_sub = gb.cpu.get_a() as i8;
-    subtract(gb, to_sub);
+    let to_sub = gb.cpu.get_a();
+    subtract(Cpu::get_a, Cpu::set_a, to_sub, gb);
 }
 
 fn subtract_b(gb: &mut GameBoy, _: u8, _: u8) {
-    let to_sub = gb.cpu.get_b() as i8;
-    subtract(gb, to_sub);
+    let to_sub = gb.cpu.get_b();
+    subtract(Cpu::get_a, Cpu::set_a, to_sub, gb);
 }
 
 fn subtract_c(gb: &mut GameBoy, _: u8, _: u8) {
-    let to_sub = gb.cpu.get_c() as i8;
-    subtract(gb, to_sub);
+    let to_sub = gb.cpu.get_c();
+    subtract(Cpu::get_a, Cpu::set_a, to_sub, gb);
 }
 
 fn subtract_d(gb: &mut GameBoy, _: u8, _: u8) {
-    let to_sub = gb.cpu.get_d() as i8;
-    subtract(gb, to_sub);
+    let to_sub = gb.cpu.get_d();
+    subtract(Cpu::get_a, Cpu::set_a, to_sub, gb);
 }
 
 fn subtract_e(gb: &mut GameBoy, _: u8, _: u8) {
-    let to_sub = gb.cpu.get_e() as i8;
-    subtract(gb, to_sub);
+    let to_sub = gb.cpu.get_e();
+    subtract(Cpu::get_a, Cpu::set_a, to_sub, gb);
 }
 
 fn subtract_h(gb: &mut GameBoy, _: u8, _: u8) {
-    let to_sub = gb.cpu.get_h() as i8;
-    subtract(gb, to_sub);
+    let to_sub = gb.cpu.get_h();
+    subtract(Cpu::get_a, Cpu::set_a, to_sub, gb);
 }
 
 fn subtract_l(gb: &mut GameBoy, _: u8, _: u8) {
-    let to_sub = gb.cpu.get_l() as i8;
-    subtract(gb, to_sub);
+    let to_sub = gb.cpu.get_l();
+    subtract(Cpu::get_a, Cpu::set_a, to_sub, gb);
 }
+
 fn compare_a(gb: &mut GameBoy, _: u8, _: u8) {
     let a = gb.cpu.get_a();
     compare(gb, a, a);
@@ -473,8 +633,36 @@ fn load_mem_de_a(gb: &mut GameBoy, _: u8, _: u8) {
     gb.memory.set_byte(gb.cpu.de, gb.cpu.get_a());
 }
 
-fn load_mem_hl_a(gb: &mut GameBoy, a1: u8, a2: u8) {
+fn load_mem_hl_a(gb: &mut GameBoy, _: u8, _: u8) {
     gb.memory.set_byte(gb.cpu.hl, gb.cpu.get_a());
+}
+
+fn load_mem_hl_b(gb: &mut GameBoy, _: u8, _: u8) {
+    gb.memory.set_byte(gb.cpu.hl, gb.cpu.get_b());
+}
+
+fn load_mem_hl_c(gb: &mut GameBoy, _: u8, _: u8) {
+    gb.memory.set_byte(gb.cpu.hl, gb.cpu.get_c());
+}
+
+fn load_mem_hl_d(gb: &mut GameBoy, _: u8, _: u8) {
+    gb.memory.set_byte(gb.cpu.hl, gb.cpu.get_d());
+}
+
+fn load_mem_hl_e(gb: &mut GameBoy, _: u8, _: u8) {
+    gb.memory.set_byte(gb.cpu.hl, gb.cpu.get_e());
+}
+
+fn load_mem_hl_h(gb: &mut GameBoy, _: u8, _: u8) {
+    gb.memory.set_byte(gb.cpu.hl, gb.cpu.get_h());
+}
+
+fn load_mem_hl_l(gb: &mut GameBoy, _: u8, _: u8) {
+    gb.memory.set_byte(gb.cpu.hl, gb.cpu.get_l());
+}
+
+fn load_mem_hl_n(gb: &mut GameBoy, a1: u8, _: u8) {
+    gb.memory.set_byte(gb.cpu.hl, a1);
 }
 
 fn load_mem_nn_a(gb: &mut GameBoy, a1: u8, a2: u8) {
@@ -634,10 +822,40 @@ fn load_mem_hl_with_a_dec_hl(gb: &mut GameBoy, _: u8, _: u8) {
 }
 
 fn load_mem_hl_with_a_inc_hl(gb: &mut GameBoy, _: u8, _: u8) {
-    let mut hl = gb.cpu.hl;
+    let hl = gb.cpu.hl;
     gb.memory.set_byte(hl, gb.cpu.get_a());
-    hl += 1;
-    gb.cpu.hl = hl;
+    gb.cpu.hl = hl + 1;
+}
+
+fn load_a_with_mem_hl_inc_hl(gb: &mut GameBoy, _: u8, _: u8) {
+    let hl = gb.cpu.hl;
+    let a = gb.memory.get_byte(hl);
+    gb.cpu.set_a(a);
+    gb.cpu.hl = hl + 1;
+}
+
+fn or_a_with(gb: &mut GameBoy, val: u8) {
+    let a = gb.cpu.get_a();
+    let result = a | val;
+
+    gb.cpu.flag.zero = result == 0;
+    gb.cpu.flag.half_carry = false;
+    gb.cpu.flag.carry = false;
+    gb.cpu.flag.subtract = false;
+
+    gb.cpu.set_a(result);
+}
+
+fn and_a_with(gb: &mut GameBoy, val: u8) {
+    let a = gb.cpu.get_a();
+    let result = a & val;
+
+    gb.cpu.flag.zero = result == 0;
+    gb.cpu.flag.subtract = false;
+    gb.cpu.flag.half_carry = true;
+    gb.cpu.flag.carry = false;
+
+    gb.cpu.set_a(result);
 }
 
 fn xor_a_with(gb: &mut GameBoy, val: u8) {
@@ -650,6 +868,94 @@ fn xor_a_with(gb: &mut GameBoy, val: u8) {
     gb.cpu.flag.subtract = false;
 
     gb.cpu.set_a(result);
+}
+
+fn or_a(gb: &mut GameBoy, _: u8, _: u8) {
+    let val = gb.cpu.get_a();
+    or_a_with(gb, val);
+}
+
+fn or_b(gb: &mut GameBoy, _: u8, _: u8) {
+    let val = gb.cpu.get_b();
+    or_a_with(gb, val);
+}
+
+fn or_c(gb: &mut GameBoy, _: u8, _: u8) {
+    let val = gb.cpu.get_c();
+    or_a_with(gb, val);
+}
+
+fn or_d(gb: &mut GameBoy, _: u8, _: u8) {
+    let val = gb.cpu.get_d();
+    or_a_with(gb, val);
+}
+
+fn or_e(gb: &mut GameBoy, _: u8, _: u8) {
+    let val = gb.cpu.get_e();
+    or_a_with(gb, val);
+}
+
+fn or_h(gb: &mut GameBoy, _: u8, _: u8) {
+    let val = gb.cpu.get_h();
+    or_a_with(gb, val);
+}
+
+fn or_l(gb: &mut GameBoy, _: u8, _: u8) {
+    let val = gb.cpu.get_l();
+    or_a_with(gb, val);
+}
+
+fn or_mem_hl(gb: &mut GameBoy, _: u8, _: u8) {
+    let val = gb.memory.get_byte(gb.cpu.hl);
+    or_a_with(gb, val);
+}
+
+fn or_n(gb: &mut GameBoy, a1: u8, _: u8) {
+    or_a_with(gb, a1);
+}
+
+fn and_a(gb: &mut GameBoy, _: u8, _: u8) {
+    let val = gb.cpu.get_a();
+    and_a_with(gb, val);
+}
+
+fn and_b(gb: &mut GameBoy, _: u8, _: u8) {
+    let val = gb.cpu.get_b();
+    and_a_with(gb, val);
+}
+
+fn and_c(gb: &mut GameBoy, _: u8, _: u8) {
+    let val = gb.cpu.get_c();
+    and_a_with(gb, val);
+}
+
+fn and_d(gb: &mut GameBoy, _: u8, _: u8) {
+    let val = gb.cpu.get_d();
+    and_a_with(gb, val);
+}
+
+fn and_e(gb: &mut GameBoy, _: u8, _: u8) {
+    let val = gb.cpu.get_e();
+    and_a_with(gb, val);
+}
+
+fn and_h(gb: &mut GameBoy, _: u8, _: u8) {
+    let val = gb.cpu.get_h();
+    and_a_with(gb, val);
+}
+
+fn and_l(gb: &mut GameBoy, _: u8, _: u8) {
+    let val = gb.cpu.get_l();
+    and_a_with(gb, val);
+}
+
+fn and_mem_hl(gb: &mut GameBoy, _: u8, _: u8) {
+    let val = gb.memory.get_byte(gb.cpu.hl);
+    and_a_with(gb, val);
+}
+
+fn and_n(gb: &mut GameBoy, a1: u8, _: u8) {
+    and_a_with(gb, a1);
 }
 
 fn xor_a(gb: &mut GameBoy, _: u8, _: u8) {
@@ -695,4 +1001,49 @@ fn disable_interrupts(gb: &mut GameBoy, _: u8, _: u8) {
 fn enable_interrupts(gb: &mut GameBoy, _: u8, _: u8) {
     //TODO some sources say this doesn't happen until after the next Instruction
     gb.cpu.interrupt_enable_master = true;
+}
+
+fn complement_a(gb: &mut GameBoy, _: u8, _: u8) {
+    gb.cpu.flag.subtract = true;
+    gb.cpu.flag.half_carry = true;
+    let a = gb.cpu.get_a();
+    gb.cpu.set_a(!a);
+}
+
+fn restart(gb: &mut GameBoy, a1: u8) {
+    let pc = gb.cpu.pc;
+    push_word(gb, pc);
+    jump_immediate(gb, a1, 0x00);
+}
+
+fn restart_00(gb: &mut GameBoy, _: u8, _: u8) {
+    restart(gb, 0x00);
+}
+
+fn restart_08(gb: &mut GameBoy, _: u8, _: u8) {
+    restart(gb, 0x08);
+}
+
+fn restart_10(gb: &mut GameBoy, _: u8, _: u8) {
+    restart(gb, 0x10);
+}
+
+fn restart_18(gb: &mut GameBoy, _: u8, _: u8) {
+    restart(gb, 0x18);
+}
+
+fn restart_20(gb: &mut GameBoy, _: u8, _: u8) {
+    restart(gb, 0x20);
+}
+
+fn restart_28(gb: &mut GameBoy, _: u8, _: u8) {
+    restart(gb, 0x28);
+}
+
+fn restart_30(gb: &mut GameBoy, _: u8, _: u8) {
+    restart(gb, 0x30);
+}
+
+fn restart_38(gb: &mut GameBoy, _: u8, _: u8) {
+    restart(gb, 0x38);
 }

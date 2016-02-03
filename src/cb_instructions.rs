@@ -14,6 +14,15 @@ pub fn get_cb_instruction_set() -> Vec<Instruction> {
         Instruction::new("RL L", 0x15, 0, 8, rotate_left_l),
         // Instruction::new("RL (HL)", 0x16, 0, 16, rotate_left_mem_hl),
 
+        Instruction::new("SWAP A", 0x37, 0, 8, swap_a),
+        Instruction::new("SWAP B", 0x30, 0, 8, swap_b),
+        Instruction::new("SWAP C", 0x31, 0, 8, swap_c),
+        Instruction::new("SWAP D", 0x32, 0, 8, swap_d),
+        Instruction::new("SWAP E", 0x33, 0, 8, swap_e),
+        Instruction::new("SWAP H", 0x34, 0, 8, swap_h),
+        Instruction::new("SWAP L", 0x35, 0, 8, swap_l),
+        Instruction::new("SWAP (HL)", 0x36, 0, 16, swap_mem_hl),
+
         Instruction::new("BIT 0,H", 0x44, 0, 8, test_bit_0_h),
         Instruction::new("BIT 1,H", 0x4C, 0, 8, test_bit_1_h),
         Instruction::new("BIT 2,H", 0x54, 0, 8, test_bit_2_h),
@@ -41,6 +50,15 @@ fn test_bit(gb: &mut GameBoy, val: u8, bit: u8) {
     gb.cpu.flag.subtract = false;
     gb.cpu.flag.half_carry = true;
     gb.cpu.flag.zero = val & mask == 0;
+}
+
+fn swap(gb: &mut GameBoy, value: u8) -> u8 {
+    gb.cpu.flag.zero = value == 0;
+    gb.cpu.flag.subtract = false;
+    gb.cpu.flag.half_carry = false;
+    gb.cpu.flag.carry = false;
+
+    (value << 4) | (value >> 4)
 }
 
 // fn potato(getter: Fn(&Cpu) -> u8, bit: u8) -> Box<Fn(& mut GameBoy, u8, u8)> {
@@ -98,6 +116,54 @@ fn rotate_left_l(gb: &mut GameBoy, _: u8, _: u8) {
     let val = gb.cpu.get_l();
     let result = rotate_left(gb, val, true);
     gb.cpu.set_l(result);
+}
+
+fn swap_a(gb: &mut GameBoy, _: u8, _: u8) {
+    let value = gb.cpu.get_a();
+    let result = swap(gb, value);
+    gb.cpu.set_a(result);
+}
+
+fn swap_b(gb: &mut GameBoy, _: u8, _: u8) {
+    let value = gb.cpu.get_b();
+    let result = swap(gb, value);
+    gb.cpu.set_b(result);
+}
+
+fn swap_c(gb: &mut GameBoy, _: u8, _: u8) {
+    let value = gb.cpu.get_c();
+    let result = swap(gb, value);
+    gb.cpu.set_c(result);
+}
+
+fn swap_d(gb: &mut GameBoy, _: u8, _: u8) {
+    let value = gb.cpu.get_d();
+    let result = swap(gb, value);
+    gb.cpu.set_d(result);
+}
+
+fn swap_e(gb: &mut GameBoy, _: u8, _: u8) {
+    let value = gb.cpu.get_e();
+    let result = swap(gb, value);
+    gb.cpu.set_e(result);
+}
+
+fn swap_h(gb: &mut GameBoy, _: u8, _: u8) {
+    let value = gb.cpu.get_h();
+    let result = swap(gb, value);
+    gb.cpu.set_h(result);
+}
+
+fn swap_l(gb: &mut GameBoy, _: u8, _: u8) {
+    let value = gb.cpu.get_l();
+    let result = swap(gb, value);
+    gb.cpu.set_l(result);
+}
+
+fn swap_mem_hl(gb: &mut GameBoy, _: u8, _: u8) {
+    let value = gb.memory.get_byte(gb.cpu.hl);
+    let result = swap(gb, value);
+    gb.memory.set_byte(gb.cpu.hl, result);
 }
 
 fn test_bit_0_h(gb: &mut GameBoy, _: u8, _: u8) {

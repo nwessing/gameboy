@@ -32,6 +32,7 @@ fn main() {
     gb.load_rom(&game_buf);
 
     let mut gpu = gpu::Gpu::new();
+    let mut debug_mode = false;
 
     gb.clock.start();
     loop {        
@@ -53,39 +54,50 @@ fn main() {
             };
 
             let instruction = match instruction {
-                Option::None => if use_cb { panic!("CB{:02X} instruction not implemented", opcode) } else { panic!("{:02X} instruction not implemented", opcode) },
+                Option::None => if use_cb { panic!("CB{:02X} instruction not implemented\n{}", opcode, gb.cpu) } else { panic!("{:02X} instruction not implemented\n{}", opcode, gb.cpu) },
                 Option::Some(x) => x,
             };
             arg_len = instruction.operand_length as u16;
             exec = instruction.exec;
             num_cycles = instruction.cycles;
-            // print!("\nExecuting instruction {} ", instruction.name);
-            // if arg_len == 1 {
-            //     print!("0x{:02X}", arg1);
-            // }
-            // if arg_len == 2 {
-            //     print!(" 0x{:02X}{:02X}", arg1, arg2);
-            // }
-            // println!("");
 
-            // if gb.cpu.pc >= 0x95 && gb.cpu.pc < 0xA8 {
-            //     pause();
-            // }
+            if debug_mode {
+                print!("\nExecuting instruction {} ", instruction.name);
+                if arg_len == 1 {
+                    print!("0x{:02X}", arg1);
+                }
+                if arg_len == 2 {
+                    print!(" 0x{:02X}{:02X}", arg1, arg2);
+                }
+                println!("");
+                pause();
+            }
+
+
+
         }
         
         gb.cpu.pc = gb.cpu.pc + arg_len + if use_cb { 2 } else { 1 };
         exec(&mut gb, arg1, arg2);
+        
+        // if gb.cpu.pc == 0x02FA {
+        //     debug_mode = true;
+        // }
+
         gb.clock.tick(num_cycles);
 
         gpu.update(&mut gb);
 
-        // println!("{}", gb.cpu);
+        if debug_mode {
+            println!("{}", gb.cpu);
+        }
     }
 
 }
 
 fn pause() {
     let mut guess = String::new();
+    println!("Paused");
     io::stdin().read_line(&mut guess)
         .ok()
         .expect("Failed to read line");
