@@ -7,6 +7,7 @@ mod memory;
 mod math;
 mod gpu;
 mod clock;
+mod interrupts;
 
 #[macro_use]
 extern crate glium;
@@ -79,9 +80,9 @@ fn main() {
         let prev = gb.cpu.get_a();
         exec(&mut gb, arg1, arg2);
 
-        if gb.cpu.pc == 0x6841 {
-            pause();
-        }
+        // if gb.cpu.pc == 0x6841 {
+        //     pause();
+        // }
         
         // if gb.cpu.get_a() == 0x20 && prev != 0x20 {
         //     println!("Just executed {:02X} arg:{:02x}, pc = {:04X}\n{}, prev was{:02X}", opcode, arg1, pc, gb.cpu, prev);
@@ -93,13 +94,13 @@ fn main() {
         //     println!("29D4 reached");
         // }
         
-        // if gb.cpu.pc == 0x02FA {
+        // if gb.cpu.pc == 0x0231 {
         //     debug_mode = true;
         // }
 
         gb.clock.tick(num_cycles);
-
         gpu.update(&mut gb);
+        interrupts::check_interrupts(&mut gb);
 
         if debug_mode {
             println!("{}", gb.cpu);

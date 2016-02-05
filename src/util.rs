@@ -1,3 +1,5 @@
+use game_boy::GameBoy;
+
 pub fn get_upper(b: u16) -> u8 {
     ((b & 0xFF00) >> 8) as u8
 }
@@ -20,4 +22,9 @@ pub fn to_signed_word(arg: u8) -> i16 {
 
 pub fn concat_bytes(a1: u8, a2: u8) -> u16 {
     ((a1 as u16) << 8) + (a2 as u16)
+}
+
+pub fn push_word(gb: &mut GameBoy, value: u16) {
+    gb.cpu.sp -= 2;
+    gb.memory.set_word(gb.cpu.sp, value);
 }

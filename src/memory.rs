@@ -18,7 +18,6 @@ impl Memory {
 
     pub fn power_on(&mut self) {
         self.mem[0xFF05] = 0x00;
-        self.mem[0xFF05] = 0x00;
         self.mem[0xFF06] = 0x00;
         self.mem[0xFF07] = 0x00;
         self.mem[0xFF10] = 0x80;
@@ -67,10 +66,41 @@ impl Memory {
         if address < 0x100 && self.mem[0xFF50] == 0 {
             return self.boot_rom[address as usize];
         }
+
+        if address >= 0xE000 && address <= 0xFE00 {
+            return self.mem[(address - 0x2000) as usize];
+        }
+
         self.mem[address as usize]
     }
 
     pub fn set_byte(&mut self, address: u16, b: u8) {
+        // if address == 0xFF0F {
+        //     println!("IF changed to: {:08b}", b);
+        // }
+
+        // if address == 0xFF80 {
+        //     return;
+        // }
+        
+        if address >= 0xE000 && address <= 0xFE00 {
+            self.mem[(address - 0x2000) as usize] = b;
+            return;
+        }
+
+        if address == 0xFF45 {
+            println!("Changed LYC to {:02X}", b);
+        }
+
+        if address == 0xFF46 {
+            // println!("OAM Transfer {:02X}", b);
+            for trans_addr in 0x00..0xA0 {
+                self.mem[(0xFE00 + (trans_addr as u16)) as usize] = self.mem[concat_bytes(b, trans_addr) as usize];
+                // println!("{:04X} is {:02X}", concat_bytes(b, trans_addr), self.mem[concat_bytes(b, trans_addr) as usize]);
+            }
+            // return;
+        }
+
         self.mem[address as usize] = b;
     }
 
@@ -81,7 +111,10 @@ impl Memory {
     }
 
     pub fn set_word(&mut self, address: u16, word: u16) {
-        self.mem[address as usize] = get_lower(word);
-        self.mem[(address + 1) as usize] = get_upper(word);
+        self.set_byte(address, get_lower(word));
+        self.set_byte(address + 1, get_upper(word));
+
+        // self.mem[address as usize] = get_lower(word);
+        // self.mem[(address + 1) as usize] = get_upper(word);
     }
 }

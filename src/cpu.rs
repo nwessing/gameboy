@@ -6,6 +6,7 @@ use util::get_upper;
 use util::get_lower;
 use util::set_upper;
 use util::set_lower;
+use util::concat_bytes;
 
 pub struct FlagRegister {
     pub zero: bool,
@@ -23,10 +24,8 @@ impl FlagRegister {
             carry: false,
         }
     }
-}
 
-impl fmt::Display for FlagRegister {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    pub fn value(&self) -> u8 {
         let mut val: u8 = 0;
         if self.zero {
             val |= 0x80;
@@ -40,12 +39,26 @@ impl fmt::Display for FlagRegister {
         if self.carry {
             val |= 0x10;
         }
+        val
+    }
+
+    pub fn set(&mut self, val: u8) {
+        self.zero = val & 0x80 == 0x80;
+        self.subtract = val & 0x40 == 0x40;
+        self.half_carry = val & 0x20 == 0x20;
+        self.carry = val & 0x10 == 0x10;
+    }
+}
+
+impl fmt::Display for FlagRegister {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let val = self.value();
         write!(f, "{:02X}", val)
     }
 }
 
 pub struct Cpu {
-    pub af: u16,
+    a: u8,
     pub bc: u16,
     pub de: u16,
     pub hl: u16,
@@ -67,7 +80,7 @@ impl fmt::Display for Cpu {
 impl Cpu {
     pub fn new() -> Cpu {
         Cpu {
-            af: 0,
+            a: 0,
             bc: 0,
             de: 0,
             hl: 0,
@@ -81,8 +94,12 @@ impl Cpu {
         }
     }
 
+    pub fn get_af(&self) -> u16 {
+        concat_bytes(self.a, self.flag.value())
+    }
+
     pub fn get_a(&self) -> u8 {
-        get_upper(self.af)
+        self.a
     }
     
     pub fn get_b(&self) -> u8 {
@@ -113,8 +130,13 @@ impl Cpu {
         get_lower(self.hl)
     }
 
+    pub fn set_af(&mut self, val: u16) {
+        self.a = get_upper(val);
+        self.flag.set(get_lower(val));
+    }
+
     pub fn set_a(&mut self, b: u8) {
-        set_upper(&mut self.af, b);
+        self.a = b;
     }
 
     pub fn set_b(&mut self, b: u8) {
@@ -146,7 +168,7 @@ impl Cpu {
     }
 
     pub fn power_on(&mut self) {
-        self.af = 0x01B0;
+        self.set_af(0x01B0);
         self.bc = 0x0013;
         self.de = 0x00D8;
         self.hl = 0x014D;
