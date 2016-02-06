@@ -2,93 +2,94 @@ use glium;
 use glium::backend::glutin_backend::GlutinFacade;
 use glium::Surface;
 use game_boy::GameBoy;
-use glium::texture::texture2d::Texture2d;
-use time;
 
 const LCD_CONTROL_REG: u16 = 0xFF40;
 const LCDC_STATUS_REG: u16 = 0xFF41;
 const SCROLL_Y_REG: u16 = 0xFF42;
 const SCROLL_X_REG: u16 = 0xFF43;
-const WINDOW_Y_REG: u16 = 0xFF4A;
-const WINDOW_X_REG: u16 = 0xFF4B;
+// const WINDOW_Y_REG: u16 = 0xFF4A;
+// const WINDOW_X_REG: u16 = 0xFF4B;
 const LCDC_Y_COORD: u16 = 0xFF44;
 const MODE_FLAG_MASK: u8 = 0b1111_1100;
 
 const VERTICAL_RES: u8 = 144;
 const HORIZONTAL_RES: u8 = 160;
 
+const MODE0_HBLANK: u8 = 0;
+const MODE1_VBLANK: u8 = 1;
+const MODE2_ACCESSING_OAM: u8 = 2;
+const MODE3_ACCESSING_VRAM: u8 = 3;
+
 pub struct Gpu {
     window: GlutinFacade,
     window_buf: Vec<Vec<(u8, u8, u8)>>,
-    last_frame_time: u64    
+    ticks: u64
 }
 
 impl Gpu {
     pub fn new() -> Gpu {
         let window = create_window();   
-        let mut window_buf = new_window_buf();
+        let window_buf = new_window_buf();
         Gpu {
             window: window,
             window_buf: window_buf,
-            last_frame_time: 0
+            ticks: 0
         }
     }
 
 
 
-    pub fn update(&mut self, gb: &mut GameBoy) {
-        let frame = 70224;
-        let v_blank = 4560;
-        let mode0 = 203;
-        let mode2 = 80;
-        let mode3 = 173;
-
+    pub fn update(&mut self, gb: &mut GameBoy, ticks: u8) {
         let status = gb.memory.get_byte(LCDC_STATUS_REG);
         let prev_mode = status & 0b0000_0011; 
         let mode;
-        let frame_step = gb.clock.current_tick() % frame;
+        
+        // if !display_enabled(gb) {
+        //     if prev_mode != MODE1_VBLANK {
+        //         panic!("LCD turned off outside of VBLANK, this should not happen.");
+        //     }
+        //     gb.memory.set_scan_line(0);
+        //     return;
+        // }
+        
+        self.ticks += ticks as u64;
+
+        let frame = 70224;
+        // let v_blank = 4560;
+        // let mode0 = 203;
+        let mode2 = 80;
+        let mode3 = 173;
+
+
+        let frame_step = self.ticks % frame;
+        let scan_line_clk = frame_step % 456;
         let scan_line = (frame_step / 456) as u8;
         
         if frame_step > 65664 {
-            //VBLANK
-            mode = 0b01;
+            mode = MODE1_VBLANK;
         } else {
-            let scan_line_clk = frame_step % 456;
             if scan_line_clk < mode2 {
-                mode = 0b10;
+                mode = MODE2_ACCESSING_OAM;
             } else if scan_line_clk < mode2 + mode3 {
-                mode = 0b11;
+                mode = MODE3_ACCESSING_VRAM;
             } else {
-                mode = 0b00;
-            }
-
-            // if scan_line_clk <= mode0 {
-            //     //HBLANK
-            //     mode = 0b00;
-            // } else if scan_line_clk <= mode0 + mode2 {
-            //     //OAM
-            //     mode = 0b10;
-            // } else {
-            //     //OAM + VRAM
-            //     mode = 0b11;
-            // }
-        }
-
-        // print!("{}", mode);
-
-        if prev_mode != mode { //&& display_enabled(gb) {
-            if prev_mode == 0b10 && mode == 0b11 {
-                self.draw_scan_line(gb, scan_line);    
-            }
-            if prev_mode == 0b00 && mode == 0b01 {
-                self.render_screen();
-                let int_flags = gb.memory.get_byte(0xFF0F);
-                gb.memory.set_byte(0xFF0F, int_flags | 0x01);
-                // println!("VBLANK INTERR line {}", scan_line);
+                mode = MODE0_HBLANK;
             }
         }
 
-        gb.memory.set_byte(LCDC_Y_COORD, scan_line);
+        if prev_mode == MODE3_ACCESSING_VRAM && mode == MODE0_HBLANK {
+            self.draw_scan_line(gb, scan_line);    
+        }
+        
+        if prev_mode == MODE0_HBLANK && mode == MODE1_VBLANK {
+            self.render_screen(gb);
+            let int_flags = gb.memory.get_byte(0xFF0F);
+            gb.memory.set_byte(0xFF0F, int_flags | 0x01);
+        }
+
+        // println!("total ticks: {}, frame: {}, scan line: {}, mode: {}, delta ticks: {}, sl ticks: {}", self.ticks, self.ticks / frame, scan_line,  mode, ticks, scan_line_clk);
+
+        gb.memory.set_scan_line(scan_line);
         gb.memory.set_byte(LCDC_STATUS_REG, (status & MODE_FLAG_MASK) | mode);
     }
 
@@ -124,14 +125,28 @@ impl Gpu {
         }
     }
 
-    pub fn render_screen(&mut self) {
-        let mut target = self.window.draw();
+    pub fn render_screen(&mut self, gb: &GameBoy) {
+        let target = self.window.draw();
         let mut reversed_buf = self.window_buf.clone();
         reversed_buf.reverse();
         let texture = glium::Texture2d::new(&self.window, reversed_buf).unwrap();
         texture.as_surface().fill(&target, glium::uniforms::MagnifySamplerFilter::Nearest);
         target.finish().unwrap();
-        // self.window_buf = new_window_buf();
+        // print_tile_map(gb);
+    }
+}
+
+fn print_tile_data(gb: &GameBoy) {
+    println!("FRAME FINISHED; Tile Data:");
+    for addr in 0x8000..0x9000 {
+        print!("{:02x}", gb.memory.get_byte(addr));
+    }
+}
+
+fn print_tile_map(gb: &GameBoy) {
+    println!("FRAME FINISHED; Tile Map:");
+    for addr in 0x9800..0xA000 {
+        print!("{:02x}", gb.memory.get_byte(addr));
     }
 }
 
@@ -167,13 +182,13 @@ fn tile_data(gb: &GameBoy) -> u8 {
 }
 
 fn get_sprite_addr(gb: &GameBoy, tile_index: u8) -> u16{
-    if tile_data(gb) == 1 {
+    // if tile_data(gb) == 1 {
         0x8000 + ((tile_index as u16) * 16)
-    } else {
-        let signed_index = tile_index as i8;
+    // } else {
+        // let signed_index = tile_index as i8;
 
-        ((0x9000i32 + (signed_index as i32)) as u32) as u16
-    }
+        // ((0x9000i32 + (signed_index as i32)) as u32) as u16
+    // }
 }
 
 fn get_color(color_id: u8) -> (u8, u8, u8) {

@@ -63,6 +63,15 @@ impl Memory {
     }
 
     pub fn get_byte(&self, address: u16) -> u8 {
+        if address == 0xFF00 {
+            let joypad = self.mem[0xFF00];
+            return (joypad & 0x30) | 0x0F;
+        }
+
+        if address >= 0xFF04 && address < 0xFF08 {
+            println!("Reading timer data at {:04X}", address);
+        }
+
         if address < 0x100 && self.mem[0xFF50] == 0 {
             return self.boot_rom[address as usize];
         }
@@ -75,21 +84,35 @@ impl Memory {
     }
 
     pub fn set_byte(&mut self, address: u16, b: u8) {
-        // if address == 0xFF0F {
-        //     println!("IF changed to: {:08b}", b);
-        // }
+        if address >= 0xFF04 && address < 0xFF08 {
+            println!("Writing timer data, value {:02X} at {:04X}", b, address);
+        }
 
-        // if address == 0xFF80 {
-        //     return;
-        // }
+        if address == 0xFF00 {
+            let joypad = self.mem[0xFF00];
+            self.mem[0xFF00] = (joypad & 0xF0) | (b & 0x30);
+            return;
+        }
+
+        if address < 0x8000 {
+            //Read only
+            return;
+        }
+
+        if address >= 0xFEA0 && address < 0xFF00 {
+            //Unusable
+            return;
+        }
         
-        if address >= 0xE000 && address <= 0xFE00 {
+        if address >= 0xE000 && address < 0xFE00 {
             self.mem[(address - 0x2000) as usize] = b;
             return;
         }
 
-        if address == 0xFF45 {
-            println!("Changed LYC to {:02X}", b);
+        if address == 0xFF44 {
+            println!("Game changed LY to {}", b);
+            self.mem[address as usize] = 0;
+            return;
         }
 
         if address == 0xFF46 {
@@ -102,6 +125,10 @@ impl Memory {
         }
 
         self.mem[address as usize] = b;
+    }
+
+    pub fn set_scan_line(&mut self, b: u8) {
+        self.mem[0xFF44] = b;
     }
 
     pub fn get_word(&self, address: u16) -> u16 {

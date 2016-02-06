@@ -1,6 +1,5 @@
 use instructions::Instruction;
 use game_boy::GameBoy;
-use cpu::Cpu;
 use math::rotate_left;
 
 pub fn get_cb_instruction_set() -> Vec<Instruction> {

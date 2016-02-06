@@ -27,9 +27,9 @@ impl Clock {
         // if (self.last_time + nano_sec_to_wait < time::precise_time_ns()) {
         //     println!("Emulation fell behind by {}ns", time::precise_time_ns() - (self.last_time + nano_sec_to_wait));
         // }
-        while self.last_time + nano_sec_to_wait > time::precise_time_ns() {
+        // while self.last_time + nano_sec_to_wait > time::precise_time_ns() {
         
-        }
+        // }
         self.last_time = time::precise_time_ns();
     }
 

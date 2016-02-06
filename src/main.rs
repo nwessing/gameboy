@@ -8,6 +8,7 @@ mod math;
 mod gpu;
 mod clock;
 mod interrupts;
+mod tests;
 
 #[macro_use]
 extern crate glium;
@@ -16,10 +17,12 @@ extern crate time;
 use std::io;
 use std::io::prelude::*;
 use std::fs;
+use std::path;
 use game_boy::GameBoy;
 
 fn main() {
     let mut game_file = fs::File::open("roms/Tetris (JUE) (V1.1) [!].gb").unwrap();
+    // let mut game_file = fs::File::open("roms/cpu_instrs/cpu_instrs.gb").unwrap();
     let mut game_buf = Vec::new();
     game_file.read_to_end(&mut game_buf).unwrap();
 
@@ -35,8 +38,20 @@ fn main() {
     let mut gpu = gpu::Gpu::new();
     let mut debug_mode = false;
 
+    let skip_boot = true;
+    if skip_boot {
+        gb.memory.set_byte(0xFF50, 1);
+        gb.cpu.pc = 0x100;
+    }
+
+    let mut log = vec![];
     gb.clock.start();
     loop {        
+
+        // if gb.cpu.pc == 0x02Cd {
+        //     debug_mode = true;
+        // }
+
         let mut opcode = gb.memory.get_byte(gb.cpu.pc);
         let use_cb = opcode == 0xCB;
         if use_cb {
@@ -62,6 +77,8 @@ fn main() {
             exec = instruction.exec;
             num_cycles = instruction.cycles;
 
+            log.push(format!("{:04x}\n", gb.cpu.pc));
+            // print!("\nExecuting instruction {}; pc = {:04X} ", instruction.name, gb.cpu.pc);
             if debug_mode {
                 print!("\nExecuting instruction {} ", instruction.name);
                 if arg_len == 1 {
@@ -77,8 +94,9 @@ fn main() {
         
         let pc = gb.cpu.pc;
         gb.cpu.pc = gb.cpu.pc + arg_len + if use_cb { 2 } else { 1 };
-        let prev = gb.cpu.get_a();
         exec(&mut gb, arg1, arg2);
+
+
 
         // if gb.cpu.pc == 0x6841 {
         //     pause();
@@ -94,17 +112,30 @@ fn main() {
         //     println!("29D4 reached");
         // }
         
-        // if gb.cpu.pc == 0x0231 {
-        //     debug_mode = true;
-        // }
 
         gb.clock.tick(num_cycles);
-        gpu.update(&mut gb);
+
+        let prev = gb.memory.get_byte(0xFF44);
+        gpu.update(&mut gb, num_cycles);
+        let sl = gb.memory.get_byte(0xFF44);
+        if sl != prev {
+            log.push(format!("scan line: {}\n", sl));
+        }
+
         interrupts::check_interrupts(&mut gb);
 
         if debug_mode {
             println!("{}", gb.cpu);
         }
+
+        // if gb.clock.current_tick() >= (4_194_304) / 2 {
+        //     let path = path::Path::new("out.txt");
+        //     let mut file = fs::File::create(&path).unwrap();
+        //     for i in 0..log.len() {
+        //         file.write((log[i]).as_bytes());
+        //     }
+        //     return;
+        // }
     }
 
 }

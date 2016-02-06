@@ -183,6 +183,7 @@ impl Cpu {
             }
         }
         Option::None
+        // return self.get_instruction(0x00);
     }
 
     pub fn get_cb_instruction(&self, opcode: u8) -> Option<&Instruction> {
@@ -192,5 +193,6 @@ impl Cpu {
             }
         }
         Option::None
+        // return self.get_instruction(0x00);
     }
 }
