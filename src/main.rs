@@ -22,7 +22,21 @@ use game_boy::GameBoy;
 
 fn main() {
     let mut game_file = fs::File::open("roms/Tetris (JUE) (V1.1) [!].gb").unwrap();
+    // let mut game_file = fs::File::open("roms/opus5.gb").unwrap();
     // let mut game_file = fs::File::open("roms/cpu_instrs/cpu_instrs.gb").unwrap();
+    // let mut game_file = fs::File::open("roms/cpu_instrs/individual/01-special.gb").unwrap();
+    // let mut game_file = fs::File::open("roms/cpu_instrs/individual/02-interrupts.gb").unwrap();    
+    // let mut game_file = fs::File::open("roms/cpu_instrs/individual/03-op sp,hl.gb").unwrap();    
+    // let mut game_file = fs::File::open("roms/cpu_instrs/individual/04-op r,imm.gb").unwrap();    
+    // let mut game_file = fs::File::open("roms/cpu_instrs/individual/05-op rp.gb").unwrap();    
+    // let mut game_file = fs::File::open("roms/cpu_instrs/individual/06-ld r,r.gb").unwrap();
+    // let mut game_file = fs::File::open("roms/cpu_instrs/individual/07-jr,jp,call,ret,rst.gb").unwrap();    
+    // let mut game_file = fs::File::open("roms/cpu_instrs/individual/08-misc instrs.gb").unwrap();    
+    // let mut game_file = fs::File::open("roms/cpu_instrs/individual/09-op r,r.gb").unwrap();    
+    // let mut game_file = fs::File::open("roms/cpu_instrs/individual/10-bit ops.gb").unwrap();    
+    // let mut game_file = fs::File::open("roms/cpu_instrs/individual/11-op a,(hl).gb").unwrap();    
+
+
     let mut game_buf = Vec::new();
     game_file.read_to_end(&mut game_buf).unwrap();
 
@@ -44,7 +58,7 @@ fn main() {
         gb.cpu.pc = 0x100;
     }
 
-    let mut log = vec![];
+    // let mut log = vec![];
     gb.clock.start();
     loop {        
 
@@ -70,15 +84,17 @@ fn main() {
             };
 
             let instruction = match instruction {
-                Option::None => if use_cb { panic!("CB{:02X} instruction not implemented\n{}", opcode, gb.cpu) } else { panic!("{:02X} instruction not implemented\n{}", opcode, gb.cpu) },
+                Option::None => { 
+                    pause(); 
+                    if use_cb { panic!("CB{:02X} instruction not implemented\n{}", opcode, gb.cpu) } else { panic!("{:02X} instruction not implemented\n{}", opcode, gb.cpu) } 
+                },
                 Option::Some(x) => x,
             };
             arg_len = instruction.operand_length as u16;
             exec = instruction.exec;
             num_cycles = instruction.cycles;
 
-            log.push(format!("{:04x}\n", gb.cpu.pc));
-            // print!("\nExecuting instruction {}; pc = {:04X} ", instruction.name, gb.cpu.pc);
+            // log.push(format!("{}, args {:02X}{:02X}; pc = {:04X}\n", instruction.name, arg1, arg2, gb.cpu.pc));
             if debug_mode {
                 print!("\nExecuting instruction {} ", instruction.name);
                 if arg_len == 1 {
@@ -92,11 +108,18 @@ fn main() {
             }
         }
         
+        let prev = gb.memory.get_byte(0xFF40);
         let pc = gb.cpu.pc;
         gb.cpu.pc = gb.cpu.pc + arg_len + if use_cb { 2 } else { 1 };
         exec(&mut gb, arg1, arg2);
+        // if pc == gb.cpu.pc {
+            // gb.cpu.pc = gb.cpu.pc + arg_len + if use_cb { 2 } else { 1 };
+        // }
 
-
+        let sl = gb.memory.get_byte(0xFF40);
+        if sl != prev {
+            // debug_mode = true;
+        }
 
         // if gb.cpu.pc == 0x6841 {
         //     pause();
@@ -114,21 +137,14 @@ fn main() {
         
 
         gb.clock.tick(num_cycles);
-
-        let prev = gb.memory.get_byte(0xFF44);
         gpu.update(&mut gb, num_cycles);
-        let sl = gb.memory.get_byte(0xFF44);
-        if sl != prev {
-            log.push(format!("scan line: {}\n", sl));
-        }
-
         interrupts::check_interrupts(&mut gb);
 
         if debug_mode {
             println!("{}", gb.cpu);
         }
 
-        // if gb.clock.current_tick() >= (4_194_304) / 2 {
+        // if gb.clock.current_tick() >= (4_194_304) * 2 {
         //     let path = path::Path::new("out.txt");
         //     let mut file = fs::File::create(&path).unwrap();
         //     for i in 0..log.len() {

@@ -44,13 +44,13 @@ impl Gpu {
         let prev_mode = status & 0b0000_0011; 
         let mode;
         
-        // if !display_enabled(gb) {
-        //     if prev_mode != MODE1_VBLANK {
-        //         panic!("LCD turned off outside of VBLANK, this should not happen.");
-        //     }
-        //     gb.memory.set_scan_line(0);
-        //     return;
-        // }
+        if !display_enabled(gb) {
+            if prev_mode != MODE1_VBLANK {
+                panic!("LCD turned off outside of VBLANK, this should not happen.");
+            }
+            gb.memory.set_scan_line(0);
+            return;
+        }
         
         self.ticks += ticks as u64;
 
@@ -65,7 +65,7 @@ impl Gpu {
         let scan_line_clk = frame_step % 456;
         let scan_line = (frame_step / 456) as u8;
         
-        if frame_step > 65664 {
+        if frame_step >= 65664 {
             mode = MODE1_VBLANK;
         } else {
             if scan_line_clk < mode2 {
@@ -82,9 +82,15 @@ impl Gpu {
         }
         
         if prev_mode == MODE0_HBLANK && mode == MODE1_VBLANK {
+            // for i in 0..144 {
+            //     self.draw_scan_line(gb, i);
+            // }
+
             self.render_screen(gb);
-            let int_flags = gb.memory.get_byte(0xFF0F);
-            gb.memory.set_byte(0xFF0F, int_flags | 0x01);
+            // if 0xFFFF & 0x01 == 0x01 {
+                let int_flags = gb.memory.get_byte(0xFF0F);
+                gb.memory.set_byte(0xFF0F, int_flags | 0x01);
+            // }
         }
 
         // println!("total ticks: {}, frame: {}, scan line: {}, mode: {}, delta ticks: {}, sl ticks: {}", self.ticks, self.ticks / frame, scan_line,  mode, ticks, scan_line_clk);
@@ -182,13 +188,13 @@ fn tile_data(gb: &GameBoy) -> u8 {
 }
 
 fn get_sprite_addr(gb: &GameBoy, tile_index: u8) -> u16{
-    // if tile_data(gb) == 1 {
+    if tile_data(gb) == 1 {
         0x8000 + ((tile_index as u16) * 16)
-    // } else {
-        // let signed_index = tile_index as i8;
+    } else {
+        let signed_index = tile_index as i8;
 
-        // ((0x9000i32 + (signed_index as i32)) as u32) as u16
-    // }
+        ((0x9000i32 + (signed_index as i32)) as u32) as u16
+    }
 }
 
 fn get_color(color_id: u8) -> (u8, u8, u8) {

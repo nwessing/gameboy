@@ -114,10 +114,6 @@ impl Cpu {
         get_upper(self.hl)
     }
 
-    // pub fn get_f(&self) -> u8 {
-    //     get_lower(self.af)
-    // }
-
     pub fn get_c(&self) -> u8 {
         get_lower(self.bc)
     }
@@ -150,10 +146,6 @@ impl Cpu {
     pub fn set_h(&mut self, b: u8) {
         set_upper(&mut self.hl, b);
     }
-
-    // pub fn set_f(&mut self, b: u8) {
-    //     set_lower(&mut self.af, b);
-    // }
 
     pub fn set_c(&mut self, b: u8) {
         set_lower(&mut self.bc, b);

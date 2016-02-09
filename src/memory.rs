@@ -90,8 +90,16 @@ impl Memory {
 
         if address == 0xFF00 {
             let joypad = self.mem[0xFF00];
-            self.mem[0xFF00] = (joypad & 0xF0) | (b & 0x30);
+            self.mem[0xFF00] = (joypad & 0x0F) | (b & 0x30);
             return;
+        }
+
+        if address == 0xFF40 {
+            println!("LCD Control {:08b}", self.mem[address as usize]);
+        }
+
+        if address == 0xFFFF {
+            println!("IE {:08b}", b);
         }
 
         if address < 0x8000 {

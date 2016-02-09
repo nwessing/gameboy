@@ -40,6 +40,38 @@ fn to_signed_word() {
     assert_eq!(util::to_signed_word(0x03), 3);
 }
 
+#[test]
+fn stack_tests() {
+    let mut gb = GameBoy::new();
+    gb.cpu.sp = 0xFFFE;
+
+    let push_hl = get_instruction(&gb, 0xE5).exec;
+    let pop_hl = get_instruction(&gb, 0xE1).exec;
+
+    gb.cpu.hl = 0x1234;
+    push_hl(&mut gb, 0, 0);
+    gb.cpu.hl = 0x5678;
+    push_hl(&mut gb, 0, 0);
+
+    gb.cpu.hl = 0xABCD;
+
+    pop_hl(&mut gb, 0, 0);
+    assert_eq!(0x5678, gb.cpu.hl);
+    pop_hl(&mut gb, 0, 0);    
+    assert_eq!(0x1234, gb.cpu.hl);
+}
+
+#[test]
+fn adding_usign_and_sign() {
+    let mut gb = GameBoy::new();
+
+    let jump_plus_signed = get_instruction(&gb, 0x18).exec;
+    gb.cpu.pc = 0xCBB0;
+    jump_plus_signed(&mut gb, 0xFE, 0xC9);
+
+    assert_eq!(0xCBAE, gb.cpu.pc);
+}
+
 fn get_instruction(gb: &GameBoy, opcode: u8) -> &instructions::Instruction {
     match gb.cpu.get_instruction(opcode) {
         Some(x) => x,

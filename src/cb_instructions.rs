@@ -1,17 +1,27 @@
 use instructions::Instruction;
 use game_boy::GameBoy;
 use math::rotate_left;
+use math::rotate_right;
+
 
 pub fn get_cb_instruction_set() -> Vec<Instruction> {
     vec![
-        Instruction::new("RL A", 0x17, 0, 8, rotate_left_a),
-        Instruction::new("RL B", 0x10, 0, 8, rotate_left_b),
-        Instruction::new("RL C", 0x11, 0, 8, rotate_left_c),
-        Instruction::new("RL D", 0x12, 0, 8, rotate_left_d),
-        Instruction::new("RL E", 0x13, 0, 8, rotate_left_e),
-        Instruction::new("RL H", 0x14, 0, 8, rotate_left_h),
-        Instruction::new("RL L", 0x15, 0, 8, rotate_left_l),
+        Instruction::new("RL A", 0x17, 0, 8, rotate_left_a_through),
+        Instruction::new("RL B", 0x10, 0, 8, rotate_left_b_through),
+        Instruction::new("RL C", 0x11, 0, 8, rotate_left_c_through),
+        Instruction::new("RL D", 0x12, 0, 8, rotate_left_d_through),
+        Instruction::new("RL E", 0x13, 0, 8, rotate_left_e_through),
+        Instruction::new("RL H", 0x14, 0, 8, rotate_left_h_through),
+        Instruction::new("RL L", 0x15, 0, 8, rotate_left_l_through),
         // Instruction::new("RL (HL)", 0x16, 0, 16, rotate_left_mem_hl),
+
+        Instruction::new("RR A", 0x1F, 0, 8, rotate_right_a_through),
+        Instruction::new("RR B", 0x18, 0, 8, rotate_right_b_through),
+        Instruction::new("RR C", 0x19, 0, 8, rotate_right_c_through),
+        Instruction::new("RR D", 0x1A, 0, 8, rotate_right_d_through),
+        Instruction::new("RR E", 0x1B, 0, 8, rotate_right_e_through),
+        Instruction::new("RR H", 0x1C, 0, 8, rotate_right_h_through),
+        Instruction::new("RR L", 0x1D, 0, 8, rotate_right_l_through),
 
         Instruction::new("SWAP A", 0x37, 0, 8, swap_a),
         Instruction::new("SWAP B", 0x30, 0, 8, swap_b),
@@ -21,6 +31,23 @@ pub fn get_cb_instruction_set() -> Vec<Instruction> {
         Instruction::new("SWAP H", 0x34, 0, 8, swap_h),
         Instruction::new("SWAP L", 0x35, 0, 8, swap_l),
         Instruction::new("SWAP (HL)", 0x36, 0, 16, swap_mem_hl),
+
+        Instruction::new("SRL A", 0x3F, 0, 8, shift_right_low_carry_a),
+        Instruction::new("SRL B", 0x38, 0, 8, shift_right_low_carry_b),
+        Instruction::new("SRL C", 0x39, 0, 8, shift_right_low_carry_c),
+        Instruction::new("SRL D", 0x3A, 0, 8, shift_right_low_carry_d),
+        Instruction::new("SRL E", 0x3B, 0, 8, shift_right_low_carry_e),
+        Instruction::new("SRL H", 0x3C, 0, 8, shift_right_low_carry_h),
+        Instruction::new("SRL L", 0x3D, 0, 8, shift_right_low_carry_l),
+
+        Instruction::new("BIT 0,A", 0x47, 0, 8, test_bit_0_a),
+        Instruction::new("BIT 1,A", 0x4F, 0, 8, test_bit_1_a),
+        Instruction::new("BIT 2,A", 0x57, 0, 8, test_bit_2_a),
+        Instruction::new("BIT 3,A", 0x5F, 0, 8, test_bit_3_a),
+        Instruction::new("BIT 4,A", 0x67, 0, 8, test_bit_4_a),
+        Instruction::new("BIT 5,A", 0x6F, 0, 8, test_bit_5_a),
+        Instruction::new("BIT 6,A", 0x77, 0, 8, test_bit_6_a),
+        Instruction::new("BIT 7,A", 0x7F, 0, 8, test_bit_7_a),
 
         Instruction::new("BIT 0,H", 0x44, 0, 8, test_bit_0_h),
         Instruction::new("BIT 1,H", 0x4C, 0, 8, test_bit_1_h),
@@ -94,43 +121,97 @@ fn swap(gb: &mut GameBoy, value: u8) -> u8 {
 
 pub fn rotate_left_a(gb: &mut GameBoy, _: u8, _: u8) {
     let val = gb.cpu.get_a();
+    let result = rotate_left(gb, val, false);
+    gb.cpu.set_a(result);
+}
+
+pub fn rotate_left_a_through(gb: &mut GameBoy, _: u8, _: u8) {
+    let val = gb.cpu.get_a();
     let result = rotate_left(gb, val, true);
     gb.cpu.set_a(result);
 }
 
-fn rotate_left_b(gb: &mut GameBoy, _: u8, _: u8) {
+fn rotate_left_b_through(gb: &mut GameBoy, _: u8, _: u8) {
     let val = gb.cpu.get_b();
     let result = rotate_left(gb, val, true);
     gb.cpu.set_b(result);
 }
 
-fn rotate_left_c(gb: &mut GameBoy, _: u8, _: u8) {
+fn rotate_left_c_through(gb: &mut GameBoy, _: u8, _: u8) {
     let val = gb.cpu.get_c();
     let result = rotate_left(gb, val, true);
     gb.cpu.set_c(result);
 }
 
-fn rotate_left_d(gb: &mut GameBoy, _: u8, _: u8) {
+fn rotate_left_d_through(gb: &mut GameBoy, _: u8, _: u8) {
     let val = gb.cpu.get_d();
     let result = rotate_left(gb, val, true);
     gb.cpu.set_d(result);
 }
 
-fn rotate_left_e(gb: &mut GameBoy, _: u8, _: u8) {
+fn rotate_left_e_through(gb: &mut GameBoy, _: u8, _: u8) {
     let val = gb.cpu.get_e();
     let result = rotate_left(gb, val, true);
     gb.cpu.set_e(result);
 }
 
-fn rotate_left_h(gb: &mut GameBoy, _: u8, _: u8) {
+fn rotate_left_h_through(gb: &mut GameBoy, _: u8, _: u8) {
     let val = gb.cpu.get_h();
     let result = rotate_left(gb, val, true);
     gb.cpu.set_h(result);
 }
 
-fn rotate_left_l(gb: &mut GameBoy, _: u8, _: u8) {
+fn rotate_left_l_through(gb: &mut GameBoy, _: u8, _: u8) {
     let val = gb.cpu.get_l();
     let result = rotate_left(gb, val, true);
+    gb.cpu.set_l(result);
+}
+
+pub fn rotate_right_a(gb: &mut GameBoy, _: u8, _: u8) {
+    let val = gb.cpu.get_a();
+    let result = rotate_right(gb, val, false);
+    gb.cpu.set_a(result);
+}
+
+pub fn rotate_right_a_through(gb: &mut GameBoy, _: u8, _: u8) {
+    let val = gb.cpu.get_a();
+    let result = rotate_right(gb, val, true);
+    gb.cpu.set_a(result);
+}
+
+fn rotate_right_b_through(gb: &mut GameBoy, _: u8, _: u8) {
+    let val = gb.cpu.get_b();
+    let result = rotate_right(gb, val, true);
+    gb.cpu.set_b(result);
+}
+
+fn rotate_right_c_through(gb: &mut GameBoy, _: u8, _: u8) {
+    let val = gb.cpu.get_c();
+    let result = rotate_right(gb, val, true);
+    gb.cpu.set_c(result);
+}
+
+fn rotate_right_d_through(gb: &mut GameBoy, _: u8, _: u8) {
+    let val = gb.cpu.get_d();
+    let result = rotate_right(gb, val, true);
+    gb.cpu.set_d(result);
+}
+
+fn rotate_right_e_through(gb: &mut GameBoy, _: u8, _: u8) {
+    let val = gb.cpu.get_e();
+    let result = rotate_right(gb, val, true);
+    gb.cpu.set_e(result);
+}
+
+fn rotate_right_h_through(gb: &mut GameBoy, _: u8, _: u8) {
+    let val = gb.cpu.get_h();
+    let result = rotate_right(gb, val, true);
+    gb.cpu.set_h(result);
+}
+
+fn rotate_right_l_through(gb: &mut GameBoy, _: u8, _: u8) {
+    let val = gb.cpu.get_l();
+    let result = rotate_right(gb, val, true);
     gb.cpu.set_l(result);
 }
 
@@ -187,6 +268,46 @@ fn reset_bit_0_a(gb: &mut GameBoy, _: u8, _: u8) {
     gb.cpu.set_a(reset_bit(a, 0));
 }
 
+fn test_bit_0_a(gb: &mut GameBoy, _: u8, _: u8) {
+    let a = gb.cpu.get_a();
+    test_bit(gb, a, 0);
+}
+
+fn test_bit_1_a(gb: &mut GameBoy, _: u8, _: u8) {
+    let a = gb.cpu.get_a();
+    test_bit(gb, a, 1);
+}
+
+fn test_bit_2_a(gb: &mut GameBoy, _: u8, _: u8) {
+    let a = gb.cpu.get_a();
+    test_bit(gb, a, 2);
+}
+
+fn test_bit_3_a(gb: &mut GameBoy, _: u8, _: u8) {
+    let a = gb.cpu.get_a();
+    test_bit(gb, a, 3);
+}
+
+fn test_bit_4_a(gb: &mut GameBoy, _: u8, _: u8) {
+    let a = gb.cpu.get_a();
+    test_bit(gb, a, 4);
+}
+
+fn test_bit_5_a(gb: &mut GameBoy, _: u8, _: u8) {
+    let a = gb.cpu.get_a();
+    test_bit(gb, a, 5);
+}
+
+fn test_bit_6_a(gb: &mut GameBoy, _: u8, _: u8) {
+    let a = gb.cpu.get_a();
+    test_bit(gb, a, 6);
+}
+
+fn test_bit_7_a(gb: &mut GameBoy, _: u8, _: u8) {
+    let a = gb.cpu.get_a();
+    test_bit(gb, a, 7);
+}
+
 fn test_bit_0_h(gb: &mut GameBoy, _: u8, _: u8) {
     let h = gb.cpu.get_h();
     test_bit(gb, h, 0);
@@ -225,4 +346,64 @@ fn test_bit_6_h(gb: &mut GameBoy, _: u8, _: u8) {
 fn test_bit_7_h(gb: &mut GameBoy, _: u8, _: u8) {
     let h = gb.cpu.get_h();
     test_bit(gb, h, 7);
+}
+
+fn shift_right_low_carry(gb: &mut GameBoy, val: u8) -> u8 {
+    gb.cpu.flag.carry = val & 0x01 == 0x01;
+    gb.cpu.flag.subtract = false;
+    gb.cpu.flag.half_carry = false;
+    let result = val >> 1;
+    gb.cpu.flag.zero = result == 0;
+    result
+}
+
+fn shift_left_low_carry(gb: &mut GameBoy, val: u8) -> u8 {
+    gb.cpu.flag.carry = val & 0x80 == 0x80;
+    gb.cpu.flag.subtract = false;
+    gb.cpu.flag.half_carry = false;
+    let result = val << 1;
+    gb.cpu.flag.zero = result == 0;
+    result
+}
+
+fn shift_right_low_carry_a(gb: &mut GameBoy, _: u8, _: u8) {
+    let val = gb.cpu.get_a();
+    let result = shift_right_low_carry(gb, val);
+    gb.cpu.set_a(result);
+}
+
+fn shift_right_low_carry_b(gb: &mut GameBoy, _: u8, _: u8) {
+    let val = gb.cpu.get_b();
+    let result = shift_right_low_carry(gb, val);
+    gb.cpu.set_b(result);
+}
+
+fn shift_right_low_carry_c(gb: &mut GameBoy, _: u8, _: u8) {
+    let val = gb.cpu.get_c();
+    let result = shift_right_low_carry(gb, val);
+    gb.cpu.set_c(result);
+}
+
+fn shift_right_low_carry_d(gb: &mut GameBoy, _: u8, _: u8) {
+    let val = gb.cpu.get_d();
+    let result = shift_right_low_carry(gb, val);
+    gb.cpu.set_d(result);
+}
+
+fn shift_right_low_carry_e(gb: &mut GameBoy, _: u8, _: u8) {
+    let val = gb.cpu.get_e();
+    let result = shift_right_low_carry(gb, val);
+    gb.cpu.set_e(result);
+}
+
+fn shift_right_low_carry_h(gb: &mut GameBoy, _: u8, _: u8) {
+    let val = gb.cpu.get_h();
+    let result = shift_right_low_carry(gb, val);
+    gb.cpu.set_h(result);
+}
+
+fn shift_right_low_carry_l(gb: &mut GameBoy, _: u8, _: u8) {
+    let val = gb.cpu.get_l();
+    let result = shift_right_low_carry(gb, val);
+    gb.cpu.set_l(result);
 }
