@@ -1,5 +1,43 @@
 use game_boy::GameBoy;
 
+#[derive(Copy, Clone)]
+pub enum Reg8{
+    A,
+    B,
+    C,
+    D,
+    E,
+    H,
+    L,
+    MemHl
+}
+
+pub fn get_reg8(gb: &GameBoy, reg: Reg8) -> u8 {
+    match reg {
+        Reg8::A => gb.cpu.get_a(),
+        Reg8::B => gb.cpu.get_b(),
+        Reg8::C => gb.cpu.get_c(),
+        Reg8::D => gb.cpu.get_d(),
+        Reg8::E => gb.cpu.get_e(),
+        Reg8::H => gb.cpu.get_h(),
+        Reg8::L => gb.cpu.get_l(),
+        Reg8::MemHl => gb.memory.get_byte(gb.cpu.hl),
+    }
+}
+
+pub fn set_reg8(gb: &mut GameBoy, reg: Reg8, val: u8) {
+    match reg {
+        Reg8::A => gb.cpu.set_a(val),
+        Reg8::B => gb.cpu.set_b(val),
+        Reg8::C => gb.cpu.set_c(val),
+        Reg8::D => gb.cpu.set_d(val),
+        Reg8::E => gb.cpu.set_e(val),
+        Reg8::H => gb.cpu.set_h(val),
+        Reg8::L => gb.cpu.set_l(val),
+        Reg8::MemHl => gb.memory.set_byte(gb.cpu.hl, val),
+    };
+}
+
 pub fn get_upper(b: u16) -> u8 {
     ((b & 0xFF00) >> 8) as u8
 }
@@ -36,3 +74,4 @@ pub fn push_word(gb: &mut GameBoy, value: u16) {
     gb.cpu.sp -= 2;
     gb.memory.set_word(gb.cpu.sp, value);
 }
+

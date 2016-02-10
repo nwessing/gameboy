@@ -3,6 +3,9 @@ use util::to_signed_word;
 use util::to_unsigned_word;
 use util::concat_bytes;
 use util::push_word;
+use util::Reg8;
+use util::get_reg8;
+use util::set_reg8;
 use cb_instructions::rotate_left_a_through;
 use cb_instructions::rotate_left_a;
 use cb_instructions::rotate_right_a_through;
@@ -14,11 +17,11 @@ pub struct Instruction {
     pub opcode: u8,
     pub operand_length: u8,
     pub cycles: u8,
-    pub exec: fn(&mut GameBoy, u8, u8)
+    pub exec: Box<Fn(&mut GameBoy, u8, u8)>
 }
 
 impl Instruction {
-    pub fn new(name: &'static str, opcode: u8, operand_length: u8, cycles: u8, exec: fn(&mut GameBoy, u8, u8)) -> Instruction {
+    pub fn new(name: &'static str, opcode: u8, operand_length: u8, cycles: u8, exec: Box<Fn(&mut GameBoy, u8, u8)>) -> Instruction {
         Instruction {
             name: name,
             opcode: opcode,
@@ -31,274 +34,269 @@ impl Instruction {
 
 pub fn get_instruction_set() -> Vec<Instruction> {
     vec![
-        Instruction::new("NOP", 0x00, 0, 4, nop),        
+        Instruction::new("NOP", 0x00, 0, 4, Box::new(nop)),
+        Instruction::new("LD A,n", 0x3E, 1, 8, load_x_imm(Reg8::A)),
+        Instruction::new("LD B,n", 0x06, 1, 8, load_x_imm(Reg8::B)),
+        Instruction::new("LD C,n", 0x0E, 1, 8, load_x_imm(Reg8::C)),
+        Instruction::new("LD D,n", 0x16, 1, 8, load_x_imm(Reg8::D)),
+        Instruction::new("LD E,n", 0x1E, 1, 8, load_x_imm(Reg8::E)),
+        Instruction::new("LD H,n", 0x26, 1, 8, load_x_imm(Reg8::H)),
+        Instruction::new("LD L,n", 0x2E, 1, 8, load_x_imm(Reg8::L)),
+        Instruction::new("LD A,A", 0x7F, 0, 4, load_x_y(Reg8::A, Reg8::A)),
+        Instruction::new("LD A,B", 0x78, 0, 4, load_x_y(Reg8::A, Reg8::B)),
+        Instruction::new("LD A,C", 0x79, 0, 4, load_x_y(Reg8::A, Reg8::C)),
+        Instruction::new("LD A,D", 0x7A, 0, 4, load_x_y(Reg8::A, Reg8::D)),
+        Instruction::new("LD A,E", 0x7B, 0, 4, load_x_y(Reg8::A, Reg8::E)),
+        Instruction::new("LD A,H", 0x7C, 0, 4, load_x_y(Reg8::A, Reg8::H)),
+        Instruction::new("LD A,L", 0x7D, 0, 4, load_x_y(Reg8::A, Reg8::L)),
+        Instruction::new("LD A,(HL)", 0x7E, 0, 8, load_x_y(Reg8::A, Reg8::MemHl)),
+        Instruction::new("LD B,A", 0x47, 0, 4, load_x_y(Reg8::B, Reg8::A)),
+        Instruction::new("LD B,B", 0x40, 0, 4, load_x_y(Reg8::B, Reg8::B)),
+        Instruction::new("LD B,C", 0x41, 0, 4, load_x_y(Reg8::B, Reg8::C)),
+        Instruction::new("LD B,D", 0x42, 0, 4, load_x_y(Reg8::B, Reg8::D)),
+        Instruction::new("LD B,E", 0x43, 0, 4, load_x_y(Reg8::B, Reg8::E)),
+        Instruction::new("LD B,H", 0x44, 0, 4, load_x_y(Reg8::B, Reg8::H)),
+        Instruction::new("LD B,L", 0x45, 0, 4, load_x_y(Reg8::B, Reg8::L)),
+        Instruction::new("LD B,(HL)", 0x46, 0, 8, load_x_y(Reg8::B, Reg8::MemHl)),
+        Instruction::new("LD C,A", 0x4F, 0, 4, load_x_y(Reg8::C, Reg8::A)),
+        Instruction::new("LD C,B", 0x48, 0, 4, load_x_y(Reg8::C, Reg8::B)),
+        Instruction::new("LD C,C", 0x49, 0, 4, load_x_y(Reg8::C, Reg8::C)),
+        Instruction::new("LD C,D", 0x4A, 0, 4, load_x_y(Reg8::C, Reg8::D)),
+        Instruction::new("LD C,E", 0x4B, 0, 4, load_x_y(Reg8::C, Reg8::E)),
+        Instruction::new("LD C,H", 0x4C, 0, 4, load_x_y(Reg8::C, Reg8::H)),
+        Instruction::new("LD C,L", 0x4D, 0, 4, load_x_y(Reg8::C, Reg8::L)),
+        Instruction::new("LD C,(HL)", 0x4E, 0, 8, load_x_y(Reg8::C, Reg8::MemHl)),
+        Instruction::new("LD D,A", 0x57, 0, 4, load_x_y(Reg8::D, Reg8::A)),
+        Instruction::new("LD D,B", 0x50, 0, 4, load_x_y(Reg8::D, Reg8::B)),
+        Instruction::new("LD D,C", 0x51, 0, 4, load_x_y(Reg8::D, Reg8::C)),
+        Instruction::new("LD D,D", 0x52, 0, 4, load_x_y(Reg8::D, Reg8::D)),
+        Instruction::new("LD D,E", 0x53, 0, 4, load_x_y(Reg8::D, Reg8::E)),
+        Instruction::new("LD D,H", 0x54, 0, 4, load_x_y(Reg8::D, Reg8::H)),
+        Instruction::new("LD D,L", 0x55, 0, 4, load_x_y(Reg8::D, Reg8::L)),
+        Instruction::new("LD D,(HL)", 0x56, 0, 8, load_x_y(Reg8::D, Reg8::MemHl)),
+        Instruction::new("LD E,A", 0x5F, 0, 4, load_x_y(Reg8::E, Reg8::A)),
+        Instruction::new("LD E,B", 0x58, 0, 4, load_x_y(Reg8::E, Reg8::B)),
+        Instruction::new("LD E,C", 0x59, 0, 4, load_x_y(Reg8::E, Reg8::C)),
+        Instruction::new("LD E,D", 0x5A, 0, 4, load_x_y(Reg8::E, Reg8::D)),
+        Instruction::new("LD E,E", 0x5B, 0, 4, load_x_y(Reg8::E, Reg8::E)),
+        Instruction::new("LD E,H", 0x5C, 0, 4, load_x_y(Reg8::E, Reg8::H)),
+        Instruction::new("LD E,L", 0x5D, 0, 4, load_x_y(Reg8::E, Reg8::L)),
+        Instruction::new("LD E,(HL)", 0x5E, 0, 8, load_x_y(Reg8::E, Reg8::MemHl)),
+        Instruction::new("LD H,A", 0x67, 0, 4, load_x_y(Reg8::H, Reg8::A)),
+        Instruction::new("LD H,B", 0x60, 0, 4, load_x_y(Reg8::H, Reg8::B)),
+        Instruction::new("LD H,C", 0x61, 0, 4, load_x_y(Reg8::H, Reg8::C)),
+        Instruction::new("LD H,D", 0x62, 0, 4, load_x_y(Reg8::H, Reg8::D)),
+        Instruction::new("LD H,E", 0x63, 0, 4, load_x_y(Reg8::H, Reg8::E)),
+        Instruction::new("LD H,H", 0x64, 0, 4, load_x_y(Reg8::H, Reg8::H)),
+        Instruction::new("LD H,L", 0x65, 0, 4, load_x_y(Reg8::H, Reg8::L)),
+        Instruction::new("LD H,(HL)", 0x66, 0, 8, load_x_y(Reg8::H, Reg8::MemHl)),
+        Instruction::new("LD L,A", 0x6f, 0, 4, load_x_y(Reg8::L, Reg8::A)),
+        Instruction::new("LD L,B", 0x68, 0, 4, load_x_y(Reg8::L, Reg8::B)),
+        Instruction::new("LD L,C", 0x69, 0, 4, load_x_y(Reg8::L, Reg8::C)),
+        Instruction::new("LD L,D", 0x6A, 0, 4, load_x_y(Reg8::L, Reg8::D)),
+        Instruction::new("LD L,E", 0x6B, 0, 4, load_x_y(Reg8::L, Reg8::E)),
+        Instruction::new("LD L,H", 0x6C, 0, 4, load_x_y(Reg8::L, Reg8::H)),
+        Instruction::new("LD L,L", 0x6D, 0, 4, load_x_y(Reg8::L, Reg8::L)),
+        Instruction::new("LD L,(HL)", 0x6E, 0, 8, load_x_y(Reg8::L, Reg8::MemHl)),
+        Instruction::new("LD (HL),A", 0x77, 0, 8, load_x_y(Reg8::MemHl, Reg8::A)),
+        Instruction::new("LD (HL),B", 0x70, 0, 8, load_x_y(Reg8::MemHl, Reg8::B)),
+        Instruction::new("LD (HL),C", 0x71, 0, 8, load_x_y(Reg8::MemHl, Reg8::C)),
+        Instruction::new("LD (HL),D", 0x72, 0, 8, load_x_y(Reg8::MemHl, Reg8::D)),
+        Instruction::new("LD (HL),E", 0x73, 0, 8, load_x_y(Reg8::MemHl, Reg8::E)),
+        Instruction::new("LD (HL),H", 0x74, 0, 8, load_x_y(Reg8::MemHl, Reg8::H)),
+        Instruction::new("LD (HL),L", 0x75, 0, 8, load_x_y(Reg8::MemHl, Reg8::L)),
+        Instruction::new("LD (HL),n", 0x36, 1, 12, load_x_imm(Reg8::MemHl)),
         
-        Instruction::new("LD B,n", 0x06, 1, 8, load_b_n),
-        Instruction::new("LD C,n", 0x0E, 1, 8, load_c_n),
-        Instruction::new("LD D,n", 0x16, 1, 8, load_d_n),
-        Instruction::new("LD E,n", 0x1E, 1, 8, load_e_n),
-        Instruction::new("LD H,n", 0x26, 1, 8, load_h_n),
-        Instruction::new("LD L,n", 0x2E, 1, 8, load_l_n),
+        Instruction::new("LD A,(BC)", 0x0A, 0, 8, Box::new(load_a_mem_bc)),
+        Instruction::new("LD A,(DE)", 0x1A, 0, 8, Box::new(load_a_mem_de)),
+        Instruction::new("LD A,(nn)", 0xFA, 2, 16, Box::new(load_a_mem_nn)),
+        Instruction::new("LD (BC),A", 0x02, 0, 8, Box::new(load_mem_bc_a)),
+        Instruction::new("LD (DE),A", 0x12, 0, 8, Box::new(load_mem_de_a)),
+        Instruction::new("LD (nn),A", 0xEA, 2, 16, Box::new(load_mem_nn_a)),
 
-        Instruction::new("LD A,A", 0x7F, 0, 4, load_a_a),
-        Instruction::new("LD A,B", 0x78, 0, 4, load_a_b),
-        Instruction::new("LD A,C", 0x79, 0, 4, load_a_c),
-        Instruction::new("LD A,D", 0x7A, 0, 4, load_a_d),
-        Instruction::new("LD A,E", 0x7B, 0, 4, load_a_e),
-        Instruction::new("LD A,H", 0x7C, 0, 4, load_a_h),
-        Instruction::new("LD A,L", 0x7D, 0, 4, load_a_l),
-        Instruction::new("LD A,(BC)", 0x0A, 0, 8, load_a_mem_bc),
-        Instruction::new("LD A,(DE)", 0x1A, 0, 8, load_a_mem_de),
-        Instruction::new("LD A,(HL)", 0x7E, 0, 8, load_a_mem_hl),
-        Instruction::new("LD A,(nn)", 0xFA, 2, 16, load_a_mem_nn),
-        Instruction::new("LD A,n", 0x3E, 1, 8, load_a_n),
-        Instruction::new("LD B,A", 0x47, 0, 4, load_b_a),
-        Instruction::new("LD B,B", 0x40, 0, 4, load_b_b),
-        Instruction::new("LD B,C", 0x41, 0, 4, load_b_c),
-        Instruction::new("LD B,D", 0x42, 0, 4, load_b_d),
-        Instruction::new("LD B,E", 0x43, 0, 4, load_b_e),
-        Instruction::new("LD B,H", 0x44, 0, 4, load_b_h),
-        Instruction::new("LD B,L", 0x45, 0, 4, load_b_l),
-        Instruction::new("LD B,(HL)", 0x46, 0, 8, load_b_mem_hl),
-        Instruction::new("LD C,A", 0x4F, 0, 4, load_c_a),
-        Instruction::new("LD C,B", 0x48, 0, 4, load_c_b),
-        Instruction::new("LD C,C", 0x49, 0, 4, load_c_c),
-        Instruction::new("LD C,D", 0x4A, 0, 4, load_c_d),
-        Instruction::new("LD C,E", 0x4B, 0, 4, load_c_e),
-        Instruction::new("LD C,H", 0x4C, 0, 4, load_c_h),
-        Instruction::new("LD C,L", 0x4D, 0, 4, load_c_l),
-        Instruction::new("LD C,(HL)", 0x4E, 0, 8, load_c_mem_hl),
-        Instruction::new("LD D,A", 0x57, 0, 4, load_d_a),
-        Instruction::new("LD D,B", 0x50, 0, 4, load_d_b),
-        Instruction::new("LD D,C", 0x51, 0, 4, load_d_c),
-        Instruction::new("LD D,D", 0x52, 0, 4, load_d_d),
-        Instruction::new("LD D,E", 0x53, 0, 4, load_d_e),
-        Instruction::new("LD D,H", 0x54, 0, 4, load_d_h),
-        Instruction::new("LD D,L", 0x55, 0, 4, load_d_l),
-        Instruction::new("LD D,(HL)", 0x56, 0, 8, load_d_mem_hl),
-        Instruction::new("LD E,A", 0x5F, 0, 4, load_e_a),
-        Instruction::new("LD E,B", 0x58, 0, 4, load_e_b),
-        Instruction::new("LD E,C", 0x59, 0, 4, load_e_c),
-        Instruction::new("LD E,D", 0x5A, 0, 4, load_e_d),
-        Instruction::new("LD E,E", 0x5B, 0, 4, load_e_e),
-        Instruction::new("LD E,H", 0x5C, 0, 4, load_e_h),
-        Instruction::new("LD E,L", 0x5D, 0, 4, load_e_l),
-        Instruction::new("LD E,(HL)", 0x5E, 0, 8, load_e_mem_hl),
+        Instruction::new("LD BC,nn", 0x01, 2, 12, Box::new(load_bc_nn)),
+        Instruction::new("LD DE,nn", 0x11, 2, 12, Box::new(load_de_nn)),
+        Instruction::new("LD HL,nn", 0x21, 2, 12, Box::new(load_hl_nn)),
+        Instruction::new("LD SP,nn", 0x31, 2, 12, Box::new(load_sp_nn)),
 
-        Instruction::new("LD H,A", 0x67, 0, 4, load_h_a),
-        Instruction::new("LD H,B", 0x60, 0, 4, load_h_b),
-        Instruction::new("LD H,C", 0x61, 0, 4, load_h_c),
-        Instruction::new("LD H,D", 0x62, 0, 4, load_h_d),
-        Instruction::new("LD H,E", 0x63, 0, 4, load_h_e),
-        Instruction::new("LD H,H", 0x64, 0, 4, load_h_h),
-        Instruction::new("LD H,L", 0x65, 0, 4, load_h_l),
-        Instruction::new("LD H,(HL)", 0x66, 0, 8, load_h_mem_hl),
+        Instruction::new("LD (HL),A; DEC HL", 0x32, 0, 8, Box::new(load_mem_hl_with_a_dec_hl)),
+        Instruction::new("LD (HL),A; INC HL", 0x22, 0, 8, Box::new(load_mem_hl_with_a_inc_hl)),
+        Instruction::new("LD A,(HL); INC HL", 0x2A, 0, 8, Box::new(load_a_with_mem_hl_inc_hl)),
+        Instruction::new("LD A,(HL); DEC HL", 0x3A, 0, 8, Box::new(load_a_with_mem_hl_dec_hl)),
 
-        Instruction::new("LD L,A", 0x6f, 0, 4, load_l_a),
-        Instruction::new("LD L,B", 0x68, 0, 4, load_l_b),
-        Instruction::new("LD L,C", 0x69, 0, 4, load_l_c),
-        Instruction::new("LD L,D", 0x6A, 0, 4, load_l_d),
-        Instruction::new("LD L,E", 0x6B, 0, 4, load_l_e),
-        Instruction::new("LD L,H", 0x6C, 0, 4, load_l_h),
-        Instruction::new("LD L,L", 0x6D, 0, 4, load_l_l),
-        Instruction::new("LD L,(HL)", 0x6E, 0, 8, load_l_mem_hl),
-        Instruction::new("LD (BC),A", 0x02, 0, 8, load_mem_bc_a),
-        Instruction::new("LD (DE),A", 0x12, 0, 8, load_mem_de_a),
+        Instruction::new("LD SP,HL", 0xF9, 0, 8, Box::new(load_sp_hl)),
+        Instruction::new("LD HL,SP+n", 0xF8, 1, 12, Box::new(load_hl_sp_plus_signed_n)),
+
+        Instruction::new("LD (0xFF00 + n),A", 0xE0, 1, 12, Box::new(load_ff00_plus_n_with_a)),
+        Instruction::new("LD A,(0xFF00 + n)", 0xF0, 1, 12, Box::new(load_a_with_ff00_plus_n)),
+        Instruction::new("LD (0xFF00 + C),A", 0xE2, 0, 8, Box::new(load_ff00_plus_c_with_a)),
+        Instruction::new("LD (nn),SP", 0x08, 2, 20, Box::new(load_mem_nn_sp)),
+
+        Instruction::new("PUSH AF", 0xF5, 0, 16, Box::new(push_af)),
+        Instruction::new("PUSH BC", 0xC5, 0, 16, Box::new(push_bc)),
+        Instruction::new("PUSH DE", 0xD5, 0, 16, Box::new(push_de)),
+        Instruction::new("PUSH HL", 0xE5, 0, 16, Box::new(push_hl)),
         
-        Instruction::new("LD (HL),A", 0x77, 0, 8, load_mem_hl_a),
-        Instruction::new("LD (HL),B", 0x70, 0, 8, load_mem_hl_b),
-        Instruction::new("LD (HL),C", 0x71, 0, 8, load_mem_hl_c),
-        Instruction::new("LD (HL),D", 0x72, 0, 8, load_mem_hl_d),
-        Instruction::new("LD (HL),E", 0x73, 0, 8, load_mem_hl_e),
-        Instruction::new("LD (HL),H", 0x74, 0, 8, load_mem_hl_h),
-        Instruction::new("LD (HL),L", 0x75, 0, 8, load_mem_hl_l),
-        Instruction::new("LD (HL),n", 0x36, 1, 12, load_mem_hl_n),
-        
-        Instruction::new("LD (nn),A", 0xEA, 2, 16, load_mem_nn_a),
+        Instruction::new("POP AF", 0xF1, 0, 12, Box::new(pop_af)),
+        Instruction::new("POP BC", 0xC1, 0, 12, Box::new(pop_bc)),
+        Instruction::new("POP DE", 0xD1, 0, 12, Box::new(pop_de)),
+        Instruction::new("POP HL", 0xE1, 0, 12, Box::new(pop_hl)),
 
-        Instruction::new("LD BC,nn", 0x01, 2, 12, load_bc_nn),
-        Instruction::new("LD DE,nn", 0x11, 2, 12, load_de_nn),
-        Instruction::new("LD HL,nn", 0x21, 2, 12, load_hl_nn),
-        Instruction::new("LD SP,nn", 0x31, 2, 12, load_sp_nn),
+        Instruction::new("AND A", 0xA7, 0, 4, Box::new(and_a)),
+        Instruction::new("AND B", 0xA0, 0, 4, Box::new(and_b)),
+        Instruction::new("AND C", 0xA1, 0, 4, Box::new(and_c)),
+        Instruction::new("AND D", 0xA2, 0, 4, Box::new(and_d)),
+        Instruction::new("AND E", 0xA3, 0, 4, Box::new(and_e)),
+        Instruction::new("AND H", 0xA4, 0, 4, Box::new(and_h)),
+        Instruction::new("AND L", 0xA5, 0, 4, Box::new(and_l)),
+        Instruction::new("AND (HL)", 0xA6, 0, 8, Box::new(and_mem_hl)),
+        Instruction::new("AND n", 0xE6, 1, 8, Box::new(and_n)),
 
-        Instruction::new("LD (HL),A; DEC HL", 0x32, 0, 8, load_mem_hl_with_a_dec_hl),
-        Instruction::new("LD (HL),A; INC HL", 0x22, 0, 8, load_mem_hl_with_a_inc_hl),
-        Instruction::new("LD A,(HL); INC HL", 0x2A, 0, 8, load_a_with_mem_hl_inc_hl),
-        Instruction::new("LD A,(HL); DEC HL", 0x3A, 0, 8, load_a_with_mem_hl_dec_hl),
+        Instruction::new("OR A", 0xB7, 0, 4, Box::new(or_a)),
+        Instruction::new("OR B", 0xB0, 0, 4, Box::new(or_b)),
+        Instruction::new("OR C", 0xB1, 0, 4, Box::new(or_c)),
+        Instruction::new("OR D", 0xB2, 0, 4, Box::new(or_d)),
+        Instruction::new("OR E", 0xB3, 0, 4, Box::new(or_e)),
+        Instruction::new("OR H", 0xB4, 0, 4, Box::new(or_h)),
+        Instruction::new("OR L", 0xB5, 0, 4, Box::new(or_l)),
+        Instruction::new("OR (HL)", 0xB6, 0, 8, Box::new(or_mem_hl)),
+        Instruction::new("OR n", 0xF6, 1, 8, Box::new(or_n)),
 
-        Instruction::new("LD SP,HL", 0xF9, 0, 8, load_sp_hl),
-        Instruction::new("LD HL,SP+n", 0xF8, 1, 12, load_hl_sp_plus_signed_n),
+        Instruction::new("XOR A", 0xAF, 0, 4, Box::new(xor_a)),
+        Instruction::new("XOR B", 0xA8, 0, 4, Box::new(xor_b)),
+        Instruction::new("XOR C", 0xA9, 0, 4, Box::new(xor_c)),
+        Instruction::new("XOR D", 0xAA, 0, 4, Box::new(xor_d)),
+        Instruction::new("XOR E", 0xAB, 0, 4, Box::new(xor_e)),
+        Instruction::new("XOR H", 0xAC, 0, 4, Box::new(xor_h)),
+        Instruction::new("XOR L", 0xAD, 0, 4, Box::new(xor_l)),
+        Instruction::new("XOR (HL)", 0xAE, 0, 8, Box::new(xor_mem_hl)),
+        Instruction::new("XOR n", 0xEE, 1, 8, Box::new(xor_n)),
 
-        Instruction::new("LD (0xFF00 + n),A", 0xE0, 1, 12, load_ff00_plus_n_with_a),
-        Instruction::new("LD A,(0xFF00 + n)", 0xF0, 1, 12, load_a_with_ff00_plus_n),
-        Instruction::new("LD (0xFF00 + C),A", 0xE2, 0, 8, load_ff00_plus_c_with_a),
-        Instruction::new("LD (nn),SP", 0x08, 2, 20, load_mem_nn_sp),
+        Instruction::new("INC A", 0x3C, 0, 4, Box::new(increment_a)),
+        Instruction::new("INC B", 0x04, 0, 4, Box::new(increment_b)),
+        Instruction::new("INC C", 0x0C, 0, 4, Box::new(increment_c)),
+        Instruction::new("INC D", 0x14, 0, 4, Box::new(increment_d)),
+        Instruction::new("INC E", 0x1C, 0, 4, Box::new(increment_e)),
+        Instruction::new("INC H", 0x24, 0, 4, Box::new(increment_h)),
+        Instruction::new("INC L", 0x2C, 0, 4, Box::new(increment_l)),
+        Instruction::new("INC BC", 0x03, 0, 8, Box::new(increment_bc)),
+        Instruction::new("INC DE", 0x13, 0, 8, Box::new(increment_de)),
+        Instruction::new("INC HL", 0x23, 0, 8, Box::new(increment_hl)),
+        Instruction::new("INC SP", 0x33, 0, 8, Box::new(increment_sp)),
+        Instruction::new("INC (HL)", 0x34, 0, 12, Box::new(increment_mem_hl)),
 
-        Instruction::new("PUSH AF", 0xF5, 0, 16, push_af),
-        Instruction::new("PUSH BC", 0xC5, 0, 16, push_bc),
-        Instruction::new("PUSH DE", 0xD5, 0, 16, push_de),
-        Instruction::new("PUSH HL", 0xE5, 0, 16, push_hl),
-        
-        Instruction::new("POP AF", 0xF1, 0, 12, pop_af),
-        Instruction::new("POP BC", 0xC1, 0, 12, pop_bc),
-        Instruction::new("POP DE", 0xD1, 0, 12, pop_de),
-        Instruction::new("POP HL", 0xE1, 0, 12, pop_hl),
+        Instruction::new("DEC A", 0x3D, 0, 4, Box::new(decrement_a)),
+        Instruction::new("DEC B", 0x05, 0, 4, Box::new(decrement_b)),
+        Instruction::new("DEC C", 0x0D, 0, 4, Box::new(decrement_c)),
+        Instruction::new("DEC D", 0x15, 0, 4, Box::new(decrement_d)),
+        Instruction::new("DEC E", 0x1D, 0, 4, Box::new(decrement_e)),
+        Instruction::new("DEC H", 0x25, 0, 4, Box::new(decrement_h)),
+        Instruction::new("DEC L", 0x2D, 0, 4, Box::new(decrement_l)),
+        Instruction::new("DEC BC", 0x0B, 0, 8, Box::new(decrement_bc)),
+        Instruction::new("DEC DE", 0x1B, 0, 8, Box::new(decrement_de)),
+        Instruction::new("DEC HL", 0x2B, 0, 8, Box::new(decrement_hl)),
+        Instruction::new("DEC SP", 0x3B, 0, 8, Box::new(decrement_sp)),
+        Instruction::new("DEC (HL)", 0x35, 0, 12, Box::new(decrement_mem_hl)),
 
-        Instruction::new("AND A", 0xA7, 0, 4, and_a),
-        Instruction::new("AND B", 0xA0, 0, 4, and_b),
-        Instruction::new("AND C", 0xA1, 0, 4, and_c),
-        Instruction::new("AND D", 0xA2, 0, 4, and_d),
-        Instruction::new("AND E", 0xA3, 0, 4, and_e),
-        Instruction::new("AND H", 0xA4, 0, 4, and_h),
-        Instruction::new("AND L", 0xA5, 0, 4, and_l),
-        Instruction::new("AND (HL)", 0xA6, 0, 8, and_mem_hl),
-        Instruction::new("AND n", 0xE6, 1, 8, and_n),
+        Instruction::new("ADD A", 0x87, 0, 4, Box::new(add_a)),
+        Instruction::new("ADD B", 0x80, 0, 4, Box::new(add_b)),
+        Instruction::new("ADD C", 0x81, 0, 4, Box::new(add_c)),
+        Instruction::new("ADD D", 0x82, 0, 4, Box::new(add_d)),
+        Instruction::new("ADD E", 0x83, 0, 4, Box::new(add_e)),
+        Instruction::new("ADD H", 0x84, 0, 4, Box::new(add_h)),
+        Instruction::new("ADD L", 0x85, 0, 4, Box::new(add_l)),
+        Instruction::new("ADD (HL)", 0x86, 0, 8, Box::new(add_mem_hl)),
+        Instruction::new("ADD n", 0xC6, 1, 8, Box::new(add_n)),
+        Instruction::new("ADD HL,BC", 0x09, 0, 8, Box::new(add_hl_bc)),
+        Instruction::new("ADD HL,DE", 0x19, 0, 8, Box::new(add_hl_de)),
+        Instruction::new("ADD HL,HL", 0x29, 0, 8, Box::new(add_hl_hl)),
+        Instruction::new("ADD HL,SP", 0x39, 0, 8, Box::new(add_hl_sp)),
 
-        Instruction::new("OR A", 0xB7, 0, 4, or_a),
-        Instruction::new("OR B", 0xB0, 0, 4, or_b),
-        Instruction::new("OR C", 0xB1, 0, 4, or_c),
-        Instruction::new("OR D", 0xB2, 0, 4, or_d),
-        Instruction::new("OR E", 0xB3, 0, 4, or_e),
-        Instruction::new("OR H", 0xB4, 0, 4, or_h),
-        Instruction::new("OR L", 0xB5, 0, 4, or_l),
-        Instruction::new("OR (HL)", 0xB6, 0, 8, or_mem_hl),
-        Instruction::new("OR n", 0xF6, 1, 8, or_n),
+        Instruction::new("ADC A,A", 0x8F, 0, 4, Box::new(add_a_with_carry)),
+        Instruction::new("ADC A,B", 0x88, 0, 4, Box::new(add_b_with_carry)),
+        Instruction::new("ADC A,C", 0x89, 0, 4, Box::new(add_c_with_carry)),
+        Instruction::new("ADC A,D", 0x8A, 0, 4, Box::new(add_d_with_carry)),
+        Instruction::new("ADC A,E", 0x8B, 0, 4, Box::new(add_e_with_carry)),
+        Instruction::new("ADC A,H", 0x8C, 0, 4, Box::new(add_h_with_carry)),
+        Instruction::new("ADC A,L", 0x8D, 0, 4, Box::new(add_l_with_carry)),
+        Instruction::new("ADC A,(HL)", 0x8E, 0, 8, Box::new(add_mem_hl_with_carry)),
+        Instruction::new("ADC A,n", 0xCE, 1, 8, Box::new(add_n_with_carry)),        
 
-        Instruction::new("XOR A", 0xAF, 0, 4, xor_a),
-        Instruction::new("XOR B", 0xA8, 0, 4, xor_b),
-        Instruction::new("XOR C", 0xA9, 0, 4, xor_c),
-        Instruction::new("XOR D", 0xAA, 0, 4, xor_d),
-        Instruction::new("XOR E", 0xAB, 0, 4, xor_e),
-        Instruction::new("XOR H", 0xAC, 0, 4, xor_h),
-        Instruction::new("XOR L", 0xAD, 0, 4, xor_l),
-        Instruction::new("XOR (HL)", 0xAE, 0, 8, xor_mem_hl),
-        Instruction::new("XOR n", 0xEE, 1, 8, xor_n),
+        Instruction::new("SUB A", 0x97, 0, 4, Box::new(subtract_a)),
+        Instruction::new("SUB B", 0x90, 0, 4, Box::new(subtract_b)),
+        Instruction::new("SUB C", 0x91, 0, 4, Box::new(subtract_c)),
+        Instruction::new("SUB D", 0x92, 0, 4, Box::new(subtract_d)),
+        Instruction::new("SUB E", 0x93, 0, 4, Box::new(subtract_e)),
+        Instruction::new("SUB H", 0x94, 0, 4, Box::new(subtract_h)),
+        Instruction::new("SUB L", 0x95, 0, 4, Box::new(subtract_l)),
+        Instruction::new("SUB (HL)", 0x96, 0, 8, Box::new(subtract_mem_hl)),
+        Instruction::new("SUB n", 0xD6, 1, 8, Box::new(subtract_n)),
 
-        Instruction::new("INC A", 0x3C, 0, 4, increment_a),
-        Instruction::new("INC B", 0x04, 0, 4, increment_b),
-        Instruction::new("INC C", 0x0C, 0, 4, increment_c),
-        Instruction::new("INC D", 0x14, 0, 4, increment_d),
-        Instruction::new("INC E", 0x1C, 0, 4, increment_e),
-        Instruction::new("INC H", 0x24, 0, 4, increment_h),
-        Instruction::new("INC L", 0x2C, 0, 4, increment_l),
-        Instruction::new("INC BC", 0x03, 0, 8, increment_bc),
-        Instruction::new("INC DE", 0x13, 0, 8, increment_de),
-        Instruction::new("INC HL", 0x23, 0, 8, increment_hl),
-        Instruction::new("INC SP", 0x33, 0, 8, increment_sp),
-        Instruction::new("INC (HL)", 0x34, 0, 12, increment_mem_hl),
+        Instruction::new("SBC A", 0x9F, 0, 4, Box::new(subtract_a_with_carry)),
+        Instruction::new("SBC B", 0x98, 0, 4, Box::new(subtract_b_with_carry)),
+        Instruction::new("SBC C", 0x99, 0, 4, Box::new(subtract_c_with_carry)),
+        Instruction::new("SBC D", 0x9A, 0, 4, Box::new(subtract_d_with_carry)),
+        Instruction::new("SBC E", 0x9B, 0, 4, Box::new(subtract_e_with_carry)),
+        Instruction::new("SBC H", 0x9C, 0, 4, Box::new(subtract_h_with_carry)),
+        Instruction::new("SBC L", 0x9D, 0, 4, Box::new(subtract_l_with_carry)),
+        Instruction::new("SBC (HL)", 0x9E, 0, 8, Box::new(subtract_mem_hl_with_carry)),
+        Instruction::new("SBC n", 0xDE, 1, 8, Box::new(subtract_n_with_carry)),
 
-        Instruction::new("DEC A", 0x3D, 0, 4, decrement_a),
-        Instruction::new("DEC B", 0x05, 0, 4, decrement_b),
-        Instruction::new("DEC C", 0x0D, 0, 4, decrement_c),
-        Instruction::new("DEC D", 0x15, 0, 4, decrement_d),
-        Instruction::new("DEC E", 0x1D, 0, 4, decrement_e),
-        Instruction::new("DEC H", 0x25, 0, 4, decrement_h),
-        Instruction::new("DEC L", 0x2D, 0, 4, decrement_l),
-        Instruction::new("DEC BC", 0x0B, 0, 8, decrement_bc),
-        Instruction::new("DEC DE", 0x1B, 0, 8, decrement_de),
-        Instruction::new("DEC HL", 0x2B, 0, 8, decrement_hl),
-        Instruction::new("DEC SP", 0x3B, 0, 8, decrement_sp),
-        Instruction::new("DEC (HL)", 0x35, 0, 12, decrement_mem_hl),
+        Instruction::new("CP A", 0xBF, 0, 4, Box::new(compare_a)),
+        Instruction::new("CP B", 0xB8, 0, 4, Box::new(compare_b)),
+        Instruction::new("CP C", 0xB9, 0, 4, Box::new(compare_c)),
+        Instruction::new("CP D", 0xBA, 0, 4, Box::new(compare_d)),
+        Instruction::new("CP E", 0xBB, 0, 4, Box::new(compare_e)),
+        Instruction::new("CP H", 0xBC, 0, 4, Box::new(compare_h)),
+        Instruction::new("CP L", 0xBD, 0, 4, Box::new(compare_l)),
+        Instruction::new("CP (HL)", 0xBE, 0, 8, Box::new(compare_mem_hl)),
+        Instruction::new("CP n", 0xFE, 1, 8, Box::new(compare_n)),
 
-        Instruction::new("ADD A", 0x87, 0, 4, add_a),
-        Instruction::new("ADD B", 0x80, 0, 4, add_b),
-        Instruction::new("ADD C", 0x81, 0, 4, add_c),
-        Instruction::new("ADD D", 0x82, 0, 4, add_d),
-        Instruction::new("ADD E", 0x83, 0, 4, add_e),
-        Instruction::new("ADD H", 0x84, 0, 4, add_h),
-        Instruction::new("ADD L", 0x85, 0, 4, add_l),
-        Instruction::new("ADD (HL)", 0x86, 0, 8, add_mem_hl),
-        Instruction::new("ADD n", 0xC6, 1, 8, add_n),
-        Instruction::new("ADD HL,BC", 0x09, 0, 8, add_hl_bc),
-        Instruction::new("ADD HL,DE", 0x19, 0, 8, add_hl_de),
-        Instruction::new("ADD HL,HL", 0x29, 0, 8, add_hl_hl),
-        Instruction::new("ADD HL,SP", 0x39, 0, 8, add_hl_sp),
+        Instruction::new("JP nn", 0xC3, 2, 12, Box::new(jump_immediate)),
+        Instruction::new("JP NZ,nn", 0xC2, 2, 12, Box::new(jump_not_z_flag)),
+        Instruction::new("JP Z,nn", 0xCA, 2, 12, Box::new(jump_z_flag)),
+        Instruction::new("JP NC,nn", 0xD2, 2, 12, Box::new(jump_not_c_flag)),
+        Instruction::new("JP C,nn", 0xDA, 2, 12, Box::new(jump_c_flag)),
+        Instruction::new("JR n", 0x18, 1, 8, Box::new(jump_pc_plus_byte)),        
+        Instruction::new("JR NZ,n", 0x20, 1, 8, Box::new(jump_not_z_flag_pc_plus)),
+        Instruction::new("JR Z,n", 0x28, 1, 8, Box::new(jump_z_flag_pc_plus)),
+        Instruction::new("JR NC,n", 0x30, 1, 8, Box::new(jump_not_c_flag_pc_plus)),
+        Instruction::new("JR C,n", 0x38, 1, 8, Box::new(jump_c_flag_pc_plus)),
+        Instruction::new("JP (HL)", 0xE9, 0, 4, Box::new(jump_hl)),
 
-        Instruction::new("ADC A,A", 0x8F, 0, 4, add_a_with_carry),
-        Instruction::new("ADC A,B", 0x88, 0, 4, add_b_with_carry),
-        Instruction::new("ADC A,C", 0x89, 0, 4, add_c_with_carry),
-        Instruction::new("ADC A,D", 0x8A, 0, 4, add_d_with_carry),
-        Instruction::new("ADC A,E", 0x8B, 0, 4, add_e_with_carry),
-        Instruction::new("ADC A,H", 0x8C, 0, 4, add_h_with_carry),
-        Instruction::new("ADC A,L", 0x8D, 0, 4, add_l_with_carry),
-        Instruction::new("ADC A,(HL)", 0x8E, 0, 8, add_mem_hl_with_carry),
-        Instruction::new("ADC A,n", 0xCE, 1, 8, add_n_with_carry),        
+        Instruction::new("CALL nn", 0xCD, 2, 12, Box::new(call_nn)),
+        Instruction::new("CALL NZ,nn", 0xC4, 2, 12, Box::new(call_if_not_zero)),
+        Instruction::new("CALL Z,nn", 0xCC, 2, 12, Box::new(call_if_zero)),
+        Instruction::new("CALL NC,nn", 0xD4, 2, 12, Box::new(call_if_not_carry)),
+        Instruction::new("CALL C,nn", 0xDC, 2, 12, Box::new(call_if_carry)),
 
-        Instruction::new("SUB A", 0x97, 0, 4, subtract_a),
-        Instruction::new("SUB B", 0x90, 0, 4, subtract_b),
-        Instruction::new("SUB C", 0x91, 0, 4, subtract_c),
-        Instruction::new("SUB D", 0x92, 0, 4, subtract_d),
-        Instruction::new("SUB E", 0x93, 0, 4, subtract_e),
-        Instruction::new("SUB H", 0x94, 0, 4, subtract_h),
-        Instruction::new("SUB L", 0x95, 0, 4, subtract_l),
-        Instruction::new("SUB (HL)", 0x96, 0, 8, subtract_mem_hl),
-        Instruction::new("SUB n", 0xD6, 1, 8, subtract_n),
+        Instruction::new("RET", 0xC9, 0, 8, Box::new(sub_return)),
+        Instruction::new("RET NZ", 0xC0, 0, 8, Box::new(sub_return_if_not_z)),
+        Instruction::new("RET Z", 0xC8, 0, 8, Box::new(sub_return_if_z)),
+        Instruction::new("RET NC", 0xD0, 0, 8, Box::new(sub_return_if_not_c)),
+        Instruction::new("RET C", 0xD8, 0, 8, Box::new(sub_return_if_c)),
+        Instruction::new("RETI", 0xD9, 0, 8, Box::new(sub_return_enable_interrupts)),
 
-        Instruction::new("SBC A", 0x9F, 0, 4, subtract_a_with_carry),
-        Instruction::new("SBC B", 0x98, 0, 4, subtract_b_with_carry),
-        Instruction::new("SBC C", 0x99, 0, 4, subtract_c_with_carry),
-        Instruction::new("SBC D", 0x9A, 0, 4, subtract_d_with_carry),
-        Instruction::new("SBC E", 0x9B, 0, 4, subtract_e_with_carry),
-        Instruction::new("SBC H", 0x9C, 0, 4, subtract_h_with_carry),
-        Instruction::new("SBC L", 0x9D, 0, 4, subtract_l_with_carry),
-        Instruction::new("SBC (HL)", 0x9E, 0, 8, subtract_mem_hl_with_carry),
-        Instruction::new("SBC n", 0xDE, 1, 8, subtract_n_with_carry),
+        Instruction::new("DI", 0xF3, 0, 4, Box::new(disable_interrupts)),
+        Instruction::new("EI", 0xFB, 0, 4, Box::new(enable_interrupts)),
 
-        Instruction::new("CP A", 0xBF, 0, 4, compare_a),
-        Instruction::new("CP B", 0xB8, 0, 4, compare_b),
-        Instruction::new("CP C", 0xB9, 0, 4, compare_c),
-        Instruction::new("CP D", 0xBA, 0, 4, compare_d),
-        Instruction::new("CP E", 0xBB, 0, 4, compare_e),
-        Instruction::new("CP H", 0xBC, 0, 4, compare_h),
-        Instruction::new("CP L", 0xBD, 0, 4, compare_l),
-        Instruction::new("CP (HL)", 0xBE, 0, 8, compare_mem_hl),
-        Instruction::new("CP n", 0xFE, 1, 8, compare_n),
+        Instruction::new("RLCA", 0x07, 0, 4, Box::new(rotate_left_a)),
+        Instruction::new("RLA", 0x17, 0, 4, Box::new(rotate_left_a_through)),
+        Instruction::new("RRCA", 0x0F, 0, 4, Box::new(rotate_right_a)),
+        Instruction::new("RRA", 0x1F, 0, 4, Box::new(rotate_right_a_through)),
 
-        Instruction::new("JP nn", 0xC3, 2, 12, jump_immediate),
-        Instruction::new("JP NZ,nn", 0xC2, 2, 12, jump_not_z_flag),
-        Instruction::new("JP Z,nn", 0xCA, 2, 12, jump_z_flag),
-        Instruction::new("JP NC,nn", 0xD2, 2, 12, jump_not_c_flag),
-        Instruction::new("JP C,nn", 0xDA, 2, 12, jump_c_flag),
-        Instruction::new("JR n", 0x18, 1, 8, jump_pc_plus_byte),        
-        Instruction::new("JR NZ,n", 0x20, 1, 8, jump_not_z_flag_pc_plus),
-        Instruction::new("JR Z,n", 0x28, 1, 8, jump_z_flag_pc_plus),
-        Instruction::new("JR NC,n", 0x30, 1, 8, jump_not_c_flag_pc_plus),
-        Instruction::new("JR C,n", 0x38, 1, 8, jump_c_flag_pc_plus),
-        Instruction::new("JP (HL)", 0xE9, 0, 4, jump_hl),
+        Instruction::new("CPL", 0x2F, 0, 4, Box::new(complement_a)),
+        Instruction::new("CCF", 0x3F, 0, 4, Box::new(complement_carry)),
+        Instruction::new("SCF", 0x37, 0, 4, Box::new(set_carry)),
 
-        Instruction::new("CALL nn", 0xCD, 2, 12, call_nn),
-        Instruction::new("CALL NZ,nn", 0xC4, 2, 12, call_if_not_zero),
-        Instruction::new("CALL Z,nn", 0xCC, 2, 12, call_if_zero),
-        Instruction::new("CALL NC,nn", 0xD4, 2, 12, call_if_not_carry),
-        Instruction::new("CALL C,nn", 0xDC, 2, 12, call_if_carry),
-
-        Instruction::new("RET", 0xC9, 0, 8, sub_return),
-        Instruction::new("RET NZ", 0xC0, 0, 8, sub_return_if_not_z),
-        Instruction::new("RET Z", 0xC8, 0, 8, sub_return_if_z),
-        Instruction::new("RET NC", 0xD0, 0, 8, sub_return_if_not_c),
-        Instruction::new("RET C", 0xD8, 0, 8, sub_return_if_c),
-        Instruction::new("RETI", 0xD9, 0, 8, sub_return_enable_interrupts),
-
-        Instruction::new("DI", 0xF3, 0, 4, disable_interrupts),
-        Instruction::new("EI", 0xFB, 0, 4, enable_interrupts),
-
-        Instruction::new("RLCA", 0x07, 0, 4, rotate_left_a),
-        Instruction::new("RLA", 0x17, 0, 4, rotate_left_a_through),
-        Instruction::new("RRCA", 0x0F, 0, 4, rotate_right_a),
-        Instruction::new("RRA", 0x1F, 0, 4, rotate_right_a_through),
-
-        Instruction::new("CPL", 0x2F, 0, 4, complement_a),
-        Instruction::new("CCF", 0x3F, 0, 4, complement_carry),
-        Instruction::new("SCF", 0x37, 0, 4, set_carry),
-
-        Instruction::new("RST 0x00", 0xC7, 0, 32, restart_00),
-        Instruction::new("RST 0x08", 0xCF, 0, 32, restart_08),
-        Instruction::new("RST 0x10", 0xD7, 0, 32, restart_10),
-        Instruction::new("RST 0x18", 0xDF, 0, 32, restart_18),
-        Instruction::new("RST 0x20", 0xE7, 0, 32, restart_20),
-        Instruction::new("RST 0x28", 0xEF, 0, 32, restart_28),
-        Instruction::new("RST 0x30", 0xF7, 0, 32, restart_30),
-        Instruction::new("RST 0x38", 0xFF, 0, 32, restart_38),
+        Instruction::new("RST 0x00", 0xC7, 0, 32, Box::new(restart_00)),
+        Instruction::new("RST 0x08", 0xCF, 0, 32, Box::new(restart_08)),
+        Instruction::new("RST 0x10", 0xD7, 0, 32, Box::new(restart_10)),
+        Instruction::new("RST 0x18", 0xDF, 0, 32, Box::new(restart_18)),
+        Instruction::new("RST 0x20", 0xE7, 0, 32, Box::new(restart_20)),
+        Instruction::new("RST 0x28", 0xEF, 0, 32, Box::new(restart_28)),
+        Instruction::new("RST 0x30", 0xF7, 0, 32, Box::new(restart_30)),
+        Instruction::new("RST 0x38", 0xFF, 0, 32, Box::new(restart_38)),
     ]
 }
 
@@ -612,19 +610,34 @@ fn increment_mem_hl(gb: &mut GameBoy, _: u8, _: u8) {
 }
 
 fn increment_bc(gb: &mut GameBoy, _: u8, _: u8) {
-    gb.cpu.bc += 1;
+    if gb.cpu.bc == 0xFFFF {
+        gb.cpu.bc = 0;
+    } else {
+        gb.cpu.bc += 1;
+    }
 }
 
 fn increment_de(gb: &mut GameBoy, _: u8, _: u8) {
-    gb.cpu.de += 1;
-}
+    if gb.cpu.de == 0xFFFF {
+        gb.cpu.de = 0;
+    } else {
+        gb.cpu.de += 1;
+    }}
 
 fn increment_hl(gb: &mut GameBoy, _: u8, _: u8) {
-    gb.cpu.hl += 1;
+    if gb.cpu.hl == 0xFFFF {
+        gb.cpu.hl = 0;
+    } else {
+        gb.cpu.hl += 1;
+    }
 }
 
 fn increment_sp(gb: &mut GameBoy, _: u8, _: u8) {
-    gb.cpu.sp += 1;
+    if gb.cpu.sp == 0xFFFF {
+        gb.cpu.sp = 0;
+    } else {
+        gb.cpu.sp += 1;
+    }
 }
 
 fn add_a(gb: &mut GameBoy, _: u8, _: u8) {
@@ -1019,6 +1032,23 @@ fn compare_n(gb: &mut GameBoy, val: u8, _: u8) {
     compare(gb, a, val);
 }
 
+fn load_8(gb: &mut GameBoy, dest: Reg8, val: u8) {
+    set_reg8(gb, dest, val);
+}
+
+fn load_x_y(dest: Reg8, val_reg: Reg8) -> Box<Fn(&mut GameBoy, u8, u8)> {
+    Box::new(move |gb, _, _| {
+        let val = get_reg8(gb, val_reg);
+        load_8(gb, dest, val)
+    })
+}
+
+fn load_x_imm(dest: Reg8) -> Box<Fn(&mut GameBoy, u8, u8)> {
+    Box::new(move |gb, val, _| {
+        load_8(gb, dest, val)
+    })
+}
+
 fn load_mem_bc_a(gb: &mut GameBoy, _: u8, _: u8) {
     gb.memory.set_byte(gb.cpu.bc, gb.cpu.get_a());
 }
@@ -1027,75 +1057,8 @@ fn load_mem_de_a(gb: &mut GameBoy, _: u8, _: u8) {
     gb.memory.set_byte(gb.cpu.de, gb.cpu.get_a());
 }
 
-fn load_mem_hl_a(gb: &mut GameBoy, _: u8, _: u8) {
-    gb.memory.set_byte(gb.cpu.hl, gb.cpu.get_a());
-}
-
-fn load_mem_hl_b(gb: &mut GameBoy, _: u8, _: u8) {
-    gb.memory.set_byte(gb.cpu.hl, gb.cpu.get_b());
-}
-
-fn load_mem_hl_c(gb: &mut GameBoy, _: u8, _: u8) {
-    gb.memory.set_byte(gb.cpu.hl, gb.cpu.get_c());
-}
-
-fn load_mem_hl_d(gb: &mut GameBoy, _: u8, _: u8) {
-    gb.memory.set_byte(gb.cpu.hl, gb.cpu.get_d());
-}
-
-fn load_mem_hl_e(gb: &mut GameBoy, _: u8, _: u8) {
-    gb.memory.set_byte(gb.cpu.hl, gb.cpu.get_e());
-}
-
-fn load_mem_hl_h(gb: &mut GameBoy, _: u8, _: u8) {
-    gb.memory.set_byte(gb.cpu.hl, gb.cpu.get_h());
-}
-
-fn load_mem_hl_l(gb: &mut GameBoy, _: u8, _: u8) {
-    gb.memory.set_byte(gb.cpu.hl, gb.cpu.get_l());
-}
-
-fn load_mem_hl_n(gb: &mut GameBoy, a1: u8, _: u8) {
-    gb.memory.set_byte(gb.cpu.hl, a1);
-}
-
 fn load_mem_nn_a(gb: &mut GameBoy, a1: u8, a2: u8) {
     gb.memory.set_byte(concat_bytes(a2, a1), gb.cpu.get_a());
-}
-
-fn load_a_a(gb: &mut GameBoy, _: u8, _: u8) {
-    let val = gb.cpu.get_a();
-    gb.cpu.set_a(val);
-}
-
-fn load_a_b(gb: &mut GameBoy, _: u8, _: u8) {
-    let val = gb.cpu.get_b();
-    gb.cpu.set_a(val);
-}
-
-fn load_a_c(gb: &mut GameBoy, _: u8, _: u8) {
-    let val = gb.cpu.get_c();
-    gb.cpu.set_a(val);
-}
-
-fn load_a_d(gb: &mut GameBoy, _: u8, _: u8) {
-    let val = gb.cpu.get_d();
-    gb.cpu.set_a(val);
-}
-
-fn load_a_e(gb: &mut GameBoy, _: u8, _: u8) {
-    let val = gb.cpu.get_e();
-    gb.cpu.set_a(val);
-}
-
-fn load_a_h(gb: &mut GameBoy, _: u8, _: u8) {
-    let val = gb.cpu.get_h();
-    gb.cpu.set_a(val);
-}
-
-fn load_a_l(gb: &mut GameBoy, _: u8, _: u8) {
-    let val = gb.cpu.get_l();
-    gb.cpu.set_a(val);
 }
 
 fn load_a_mem_bc(gb: &mut GameBoy, _: u8, _: u8) {
@@ -1116,274 +1079,6 @@ fn load_a_mem_hl(gb: &mut GameBoy, _: u8, _: u8) {
 fn load_a_mem_nn(gb: &mut GameBoy, a1: u8, a2: u8) {
     let val = gb.memory.get_byte(concat_bytes(a2, a1));
     gb.cpu.set_a(val);
-}
-
-fn load_b_a(gb: &mut GameBoy, _: u8, _: u8) {
-    let val = gb.cpu.get_a();
-    gb.cpu.set_b(val);
-}
-
-fn load_b_b(gb: &mut GameBoy, _: u8, _: u8) {
-    let val = gb.cpu.get_b();
-    gb.cpu.set_b(val);
-}
-
-fn load_b_c(gb: &mut GameBoy, _: u8, _: u8) {
-    let val = gb.cpu.get_c();
-    gb.cpu.set_b(val);
-}
-
-fn load_b_d(gb: &mut GameBoy, _: u8, _: u8) {
-    let val = gb.cpu.get_d();
-    gb.cpu.set_b(val);
-}
-
-fn load_b_e(gb: &mut GameBoy, _: u8, _: u8) {
-    let val = gb.cpu.get_e();
-    gb.cpu.set_b(val);
-}
-
-fn load_b_h(gb: &mut GameBoy, _: u8, _: u8) {
-    let val = gb.cpu.get_h();
-    gb.cpu.set_b(val);
-}
-
-fn load_b_l(gb: &mut GameBoy, _: u8, _: u8) {
-    let val = gb.cpu.get_l();
-    gb.cpu.set_b(val);
-}
-
-fn load_b_mem_hl(gb: &mut GameBoy, _: u8, _: u8) {
-    let val = gb.memory.get_byte(gb.cpu.hl);
-    gb.cpu.set_b(val);
-}
-
-fn load_c_a(gb: &mut GameBoy, _: u8, _: u8) {
-    let val = gb.cpu.get_a();
-    gb.cpu.set_c(val);
-}
-
-fn load_c_b(gb: &mut GameBoy, _: u8, _: u8) {
-    let val = gb.cpu.get_b();
-    gb.cpu.set_c(val);
-}
-
-fn load_c_c(gb: &mut GameBoy, _: u8, _: u8) {
-    let val = gb.cpu.get_c();
-    gb.cpu.set_c(val);
-}
-
-fn load_c_d(gb: &mut GameBoy, _: u8, _: u8) {
-    let val = gb.cpu.get_d();
-    gb.cpu.set_c(val);
-}
-
-fn load_c_e(gb: &mut GameBoy, _: u8, _: u8) {
-    let val = gb.cpu.get_e();
-    gb.cpu.set_c(val);
-}
-
-fn load_c_h(gb: &mut GameBoy, _: u8, _: u8) {
-    let val = gb.cpu.get_h();
-    gb.cpu.set_c(val);
-}
-
-fn load_c_l(gb: &mut GameBoy, _: u8, _: u8) {
-    let val = gb.cpu.get_l();
-    gb.cpu.set_c(val);
-}
-
-fn load_c_mem_hl(gb: &mut GameBoy, _: u8, _: u8) {
-    let val = gb.memory.get_byte(gb.cpu.hl);
-    gb.cpu.set_c(val);
-}
-
-fn load_d_a(gb: &mut GameBoy, _: u8, _: u8) {
-    let val = gb.cpu.get_a();
-    gb.cpu.set_d(val);
-}
-
-fn load_d_b(gb: &mut GameBoy, _: u8, _: u8) {
-    let val = gb.cpu.get_b();
-    gb.cpu.set_d(val);
-}
-
-fn load_d_c(gb: &mut GameBoy, _: u8, _: u8) {
-    let val = gb.cpu.get_c();
-    gb.cpu.set_d(val);
-}
-
-fn load_d_d(gb: &mut GameBoy, _: u8, _: u8) {
-    let val = gb.cpu.get_d();
-    gb.cpu.set_d(val);
-}
-
-fn load_d_e(gb: &mut GameBoy, _: u8, _: u8) {
-    let val = gb.cpu.get_e();
-    gb.cpu.set_d(val);
-}
-
-fn load_d_h(gb: &mut GameBoy, _: u8, _: u8) {
-    let val = gb.cpu.get_h();
-    gb.cpu.set_d(val);
-}
-
-fn load_d_l(gb: &mut GameBoy, _: u8, _: u8) {
-    let val = gb.cpu.get_l();
-    gb.cpu.set_d(val);
-}
-
-fn load_d_mem_hl(gb: &mut GameBoy, _: u8, _: u8) {
-    let val = gb.memory.get_byte(gb.cpu.hl);
-    gb.cpu.set_d(val);
-}
-
-fn load_e_a(gb: &mut GameBoy, _: u8, _: u8) {
-    let val = gb.cpu.get_a();
-    gb.cpu.set_e(val);
-}
-
-fn load_e_b(gb: &mut GameBoy, _: u8, _: u8) {
-    let val = gb.cpu.get_b();
-    gb.cpu.set_e(val);
-}
-
-fn load_e_c(gb: &mut GameBoy, _: u8, _: u8) {
-    let val = gb.cpu.get_c();
-    gb.cpu.set_e(val);
-}
-
-fn load_e_d(gb: &mut GameBoy, _: u8, _: u8) {
-    let val = gb.cpu.get_d();
-    gb.cpu.set_e(val);
-}
-
-fn load_e_e(gb: &mut GameBoy, _: u8, _: u8) {
-    let val = gb.cpu.get_e();
-    gb.cpu.set_e(val);
-}
-
-fn load_e_h(gb: &mut GameBoy, _: u8, _: u8) {
-    let val = gb.cpu.get_h();
-    gb.cpu.set_e(val);
-}
-
-fn load_e_l(gb: &mut GameBoy, _: u8, _: u8) {
-    let val = gb.cpu.get_l();
-    gb.cpu.set_e(val);
-}
-
-fn load_e_mem_hl(gb: &mut GameBoy, _: u8, _: u8) {
-    let val = gb.memory.get_byte(gb.cpu.hl);
-    gb.cpu.set_e(val);
-}
-
-fn load_h_a(gb: &mut GameBoy, _: u8, _: u8) {
-    let val = gb.cpu.get_a();
-    gb.cpu.set_h(val);
-}
-
-fn load_h_b(gb: &mut GameBoy, _: u8, _: u8) {
-    let val = gb.cpu.get_b();
-    gb.cpu.set_h(val);
-}
-
-fn load_h_c(gb: &mut GameBoy, _: u8, _: u8) {
-    let val = gb.cpu.get_c();
-    gb.cpu.set_h(val);
-}
-
-fn load_h_d(gb: &mut GameBoy, _: u8, _: u8) {
-    let val = gb.cpu.get_d();
-    gb.cpu.set_h(val);
-}
-
-fn load_h_e(gb: &mut GameBoy, _: u8, _: u8) {
-    let val = gb.cpu.get_e();
-    gb.cpu.set_h(val);
-}
-
-fn load_h_h(gb: &mut GameBoy, _: u8, _: u8) {
-    let val = gb.cpu.get_h();
-    gb.cpu.set_h(val);
-}
-
-fn load_h_l(gb: &mut GameBoy, _: u8, _: u8) {
-    let val = gb.cpu.get_l();
-    gb.cpu.set_h(val);
-}
-
-fn load_h_mem_hl(gb: &mut GameBoy, _: u8, _: u8) {
-    let val = gb.memory.get_byte(gb.cpu.hl);
-    gb.cpu.set_h(val);
-}
-
-fn load_l_a(gb: &mut GameBoy, _: u8, _: u8) {
-    let val = gb.cpu.get_a();
-    gb.cpu.set_l(val);
-}
-
-fn load_l_b(gb: &mut GameBoy, _: u8, _: u8) {
-    let val = gb.cpu.get_b();
-    gb.cpu.set_l(val);
-}
-
-fn load_l_c(gb: &mut GameBoy, _: u8, _: u8) {
-    let val = gb.cpu.get_c();
-    gb.cpu.set_l(val);
-}
-
-fn load_l_d(gb: &mut GameBoy, _: u8, _: u8) {
-    let val = gb.cpu.get_d();
-    gb.cpu.set_l(val);
-}
-
-fn load_l_e(gb: &mut GameBoy, _: u8, _: u8) {
-    let val = gb.cpu.get_e();
-    gb.cpu.set_l(val);
-}
-
-fn load_l_h(gb: &mut GameBoy, _: u8, _: u8) {
-    let val = gb.cpu.get_h();
-    gb.cpu.set_l(val);
-}
-
-fn load_l_l(gb: &mut GameBoy, _: u8, _: u8) {
-    let val = gb.cpu.get_l();
-    gb.cpu.set_l(val);
-}
-
-fn load_l_mem_hl(gb: &mut GameBoy, _: u8, _: u8) {
-    let val = gb.memory.get_byte(gb.cpu.hl);
-    gb.cpu.set_l(val);
-}
-
-fn load_a_n(gb: &mut GameBoy, a1: u8, _: u8) {
-    gb.cpu.set_a(a1);
-}
-
-fn load_b_n(gb: &mut GameBoy, a1: u8, _: u8) {
-    gb.cpu.set_b(a1);
-}
-
-fn load_c_n(gb: &mut GameBoy, a1: u8, _: u8) {
-    gb.cpu.set_c(a1);
-}
-
-fn load_d_n(gb: &mut GameBoy, a1: u8, _: u8) {
-    gb.cpu.set_d(a1);
-}
-
-fn load_e_n(gb: &mut GameBoy, a1: u8, _: u8) {
-    gb.cpu.set_e(a1);
-}
-
-fn load_h_n(gb: &mut GameBoy, a1: u8, _: u8) {
-    gb.cpu.set_h(a1);
-}
-
-fn load_l_n(gb: &mut GameBoy, a1: u8, _: u8) {
-    gb.cpu.set_l(a1);
 }
 
 fn load_bc_nn(gb: &mut GameBoy, a1: u8, a2: u8) {

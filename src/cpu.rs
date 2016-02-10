@@ -65,9 +65,7 @@ pub struct Cpu {
     pub sp: u16,
     pub pc: u16,
     pub interrupt_enable_master: bool,
-    pub flag: FlagRegister,
-    instructions: Vec<Instruction>,
-    cb_instructions: Vec<Instruction>
+    pub flag: FlagRegister
 }
 
 impl fmt::Display for Cpu {
@@ -87,10 +85,7 @@ impl Cpu {
             sp: 0,
             pc: 0,
             interrupt_enable_master: false,
-            flag: FlagRegister::new(),
-            instructions: get_instruction_set(),
-            cb_instructions: get_cb_instruction_set()
-
+            flag: FlagRegister::new()
         }
     }
 
@@ -167,24 +162,35 @@ impl Cpu {
         self.sp = 0xFFFE;
         self.pc = 0x0000;
     }
+}
 
+pub struct InstructionSet {
+    instructions: Vec<Instruction>,
+    cb_instructions: Vec<Instruction>
+}
+
+impl InstructionSet {
+    pub fn new() -> InstructionSet {
+        InstructionSet {
+            instructions: get_instruction_set(),
+            cb_instructions: get_cb_instruction_set()
+        }
+    }
     pub fn get_instruction(&self, opcode: u8) -> Option<&Instruction> {
-        for ins in &self.instructions {
+        for ins in self.instructions.iter() {
             if ins.opcode == opcode {
-                return Option::Some(&ins);
+                return Some(&ins);
             }
         }
-        Option::None
-        // return self.get_instruction(0x00);
+        None
     }
 
     pub fn get_cb_instruction(&self, opcode: u8) -> Option<&Instruction> {
-        for ins in &self.cb_instructions {
+        for ins in self.cb_instructions.iter() {
             if ins.opcode == opcode {
-                return Option::Some(&ins);
+                return Some(&ins);
             }
         }
-        Option::None
-        // return self.get_instruction(0x00);
+        None
     }
 }

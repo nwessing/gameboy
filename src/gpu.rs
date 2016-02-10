@@ -37,8 +37,6 @@ impl Gpu {
         }
     }
 
-
-
     pub fn update(&mut self, gb: &mut GameBoy, ticks: u8) {
         let status = gb.memory.get_byte(LCDC_STATUS_REG);
         let prev_mode = status & 0b0000_0011; 
@@ -55,8 +53,6 @@ impl Gpu {
         self.ticks += ticks as u64;
 
         let frame = 70224;
-        // let v_blank = 4560;
-        // let mode0 = 203;
         let mode2 = 80;
         let mode3 = 173;
 
@@ -82,10 +78,6 @@ impl Gpu {
         }
         
         if prev_mode == MODE0_HBLANK && mode == MODE1_VBLANK {
-            // for i in 0..144 {
-            //     self.draw_scan_line(gb, i);
-            // }
-
             self.render_screen(gb);
             // if 0xFFFF & 0x01 == 0x01 {
                 let int_flags = gb.memory.get_byte(0xFF0F);
@@ -104,17 +96,20 @@ impl Gpu {
         let tile_map_addr = if bg_tile_map(gb) == 1 { 0x9C00 } else { 0x9800 };
         let bg_palette = bg_palette(gb);
 
-        let scroll_y = gb.memory.get_byte(SCROLL_Y_REG);
-        let scroll_x = gb.memory.get_byte(SCROLL_X_REG);
+        let scroll_y = gb.memory.get_byte(SCROLL_Y_REG) as u16;
+        let scroll_x = gb.memory.get_byte(SCROLL_X_REG) as u16;
 
-        let y = scroll_y + scan_line;
+        let mut y = scroll_y + (scan_line as u16);
+        if y > 255 {
+            y -= 256;
+        }
         let base_tile_map_index = (y as u16) / 8 * 32;
 
-        for x in scroll_x..(scroll_x + HORIZONTAL_RES) {
-            // if !display_on {
-            //     self.window_buf[scan_line as usize][(x - scroll_x) as usize] = (255, 255, 255);
-            //     continue;
-            // }
+        for x in scroll_x..(scroll_x + (HORIZONTAL_RES as u16)) {
+            let mut x = x;
+            if x > 255 {
+                x -= 256;
+            }
 
             let tile_index = base_tile_map_index + ((x / 8) as u16);
             let tile_data_index = gb.memory.get_byte(tile_map_addr + tile_index);

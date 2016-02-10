@@ -36,7 +36,6 @@ fn main() {
     // let mut game_file = fs::File::open("roms/cpu_instrs/individual/10-bit ops.gb").unwrap();    
     // let mut game_file = fs::File::open("roms/cpu_instrs/individual/11-op a,(hl).gb").unwrap();    
 
-
     let mut game_buf = Vec::new();
     game_file.read_to_end(&mut game_buf).unwrap();
 
@@ -45,6 +44,8 @@ fn main() {
     boot_file.read_to_end(&mut boot_buf).unwrap();
 
     let mut gb = GameBoy::new();
+    let instruction_set = cpu::InstructionSet::new();
+
     gb.power_on();
     gb.load_boot_rom(&boot_buf);
     gb.load_rom(&game_buf);
@@ -58,13 +59,8 @@ fn main() {
         gb.cpu.pc = 0x100;
     }
 
-    // let mut log = vec![];
     gb.clock.start();
     loop {        
-
-        // if gb.cpu.pc == 0x02Cd {
-        //     debug_mode = true;
-        // }
 
         let mut opcode = gb.memory.get_byte(gb.cpu.pc);
         let use_cb = opcode == 0xCB;
@@ -73,71 +69,39 @@ fn main() {
         }
         let arg1 = gb.memory.get_byte(gb.cpu.pc + if use_cb { 2 } else { 1 });
         let arg2 = gb.memory.get_byte(gb.cpu.pc + if use_cb { 3 } else { 2 });
-        let exec; 
-        let num_cycles;
-        let arg_len;
-        {
-            let instruction = if use_cb {
-                gb.cpu.get_cb_instruction(opcode)
-            } else {
-                gb.cpu.get_instruction(opcode)
-            };
 
-            let instruction = match instruction {
-                Option::None => { 
-                    pause(); 
-                    if use_cb { panic!("CB{:02X} instruction not implemented\n{}", opcode, gb.cpu) } else { panic!("{:02X} instruction not implemented\n{}", opcode, gb.cpu) } 
-                },
-                Option::Some(x) => x,
-            };
-            arg_len = instruction.operand_length as u16;
-            exec = instruction.exec;
-            num_cycles = instruction.cycles;
+        let instruction = if use_cb {
+            instruction_set.get_cb_instruction(opcode)
+        } else {
+            instruction_set.get_instruction(opcode)
+        };
 
-            // log.push(format!("{}, args {:02X}{:02X}; pc = {:04X}\n", instruction.name, arg1, arg2, gb.cpu.pc));
-            if debug_mode {
-                print!("\nExecuting instruction {} ", instruction.name);
-                if arg_len == 1 {
-                    print!("0x{:02X}", arg1);
-                }
-                if arg_len == 2 {
-                    print!(" 0x{:02X}{:02X}", arg1, arg2);
-                }
-                println!("");
-                pause();
+        let instruction = match instruction {
+            Option::None => { 
+                pause(); 
+                if use_cb { panic!("CB{:02X} instruction not implemented\n{}", opcode, gb.cpu) } else { panic!("{:02X} instruction not implemented\n{}", opcode, gb.cpu) } 
+            },
+            Option::Some(x) => x,
+        };
+
+        if debug_mode {
+            print!("\nExecuting instruction {} ", instruction.name);
+            if instruction.operand_length == 1 {
+                print!("0x{:02X}", arg1);
             }
+            if instruction.operand_length == 2 {
+                print!(" 0x{:02X}{:02X}", arg1, arg2);
+            }
+            println!("");
+            pause();
         }
         
-        let prev = gb.memory.get_byte(0xFF40);
-        let pc = gb.cpu.pc;
-        gb.cpu.pc = gb.cpu.pc + arg_len + if use_cb { 2 } else { 1 };
-        exec(&mut gb, arg1, arg2);
-        // if pc == gb.cpu.pc {
-            // gb.cpu.pc = gb.cpu.pc + arg_len + if use_cb { 2 } else { 1 };
-        // }
-
-        let sl = gb.memory.get_byte(0xFF40);
-        if sl != prev {
-            // debug_mode = true;
-        }
-
-        // if gb.cpu.pc == 0x6841 {
-        //     pause();
-        // }
+        gb.cpu.pc = gb.cpu.pc + (instruction.operand_length as u16) + if use_cb { 2 } else { 1 };
         
-        // if gb.cpu.get_a() == 0x20 && prev != 0x20 {
-        //     println!("Just executed {:02X} arg:{:02x}, pc = {:04X}\n{}, prev was{:02X}", opcode, arg1, pc, gb.cpu, prev);
-        //     // debug_mode = true;
-        //     pause();
-        // }
+        (instruction.exec)(&mut gb, arg1, arg2);
 
-        // if pc == 0x29D4 {
-        //     println!("29D4 reached");
-        // }
-        
-
-        gb.clock.tick(num_cycles);
-        gpu.update(&mut gb, num_cycles);
+        gb.clock.tick(instruction.cycles);
+        gpu.update(&mut gb, instruction.cycles);
         interrupts::check_interrupts(&mut gb);
 
         if debug_mode {

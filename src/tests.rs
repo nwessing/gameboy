@@ -1,4 +1,5 @@
 use instructions;
+use cpu::InstructionSet;
 use game_boy::GameBoy;
 use util;
 
@@ -16,21 +17,16 @@ fn test() {
 
 #[test]
 fn jump_pc_plus_bytes() {
-    let exec;
+    let is = InstructionSet::new();
+    let ins = get_instruction(&is, 0x18);
     let mut gb = GameBoy::new();
-    {
-        let ins = match gb.cpu.get_instruction(0x18) {
-            Some(x) => x,
-            _ => panic!("instruction not found")
-        };
-        exec = ins.exec;
-    }
+
     gb.cpu.pc = 0xFF00;
-    exec(&mut gb, 0xFD, 0);
+    (ins.exec)(&mut gb, 0xFD, 0);
     assert_eq!(gb.cpu.pc, 0xFEFD);
 
     gb.cpu.pc = 0xFF00;
-    exec(&mut gb, 0x05, 0);
+    (ins.exec)(&mut gb, 0x05, 0);
     assert_eq!(gb.cpu.pc, 0xFF05);
 }
 
@@ -42,38 +38,40 @@ fn to_signed_word() {
 
 #[test]
 fn stack_tests() {
+    let is = InstructionSet::new();
     let mut gb = GameBoy::new();
     gb.cpu.sp = 0xFFFE;
 
-    let push_hl = get_instruction(&gb, 0xE5).exec;
-    let pop_hl = get_instruction(&gb, 0xE1).exec;
+    let push_hl = get_instruction(&is, 0xE5);
+    let pop_hl = get_instruction(&is, 0xE1);
 
     gb.cpu.hl = 0x1234;
-    push_hl(&mut gb, 0, 0);
+    (push_hl.exec)(&mut gb, 0, 0);
     gb.cpu.hl = 0x5678;
-    push_hl(&mut gb, 0, 0);
+    (push_hl.exec)(&mut gb, 0, 0);
 
     gb.cpu.hl = 0xABCD;
 
-    pop_hl(&mut gb, 0, 0);
+    (pop_hl.exec)(&mut gb, 0, 0);
     assert_eq!(0x5678, gb.cpu.hl);
-    pop_hl(&mut gb, 0, 0);    
+    (pop_hl.exec)(&mut gb, 0, 0);    
     assert_eq!(0x1234, gb.cpu.hl);
 }
 
 #[test]
 fn adding_usign_and_sign() {
+    let is = InstructionSet::new();
     let mut gb = GameBoy::new();
 
-    let jump_plus_signed = get_instruction(&gb, 0x18).exec;
+    let jump_plus_signed = get_instruction(&is, 0x18);
     gb.cpu.pc = 0xCBB0;
-    jump_plus_signed(&mut gb, 0xFE, 0xC9);
+    (jump_plus_signed.exec)(&mut gb, 0xFE, 0xC9);
 
     assert_eq!(0xCBAE, gb.cpu.pc);
 }
 
-fn get_instruction(gb: &GameBoy, opcode: u8) -> &instructions::Instruction {
-    match gb.cpu.get_instruction(opcode) {
+fn get_instruction(is: &InstructionSet, opcode: u8) -> &instructions::Instruction {
+    match is.get_instruction(opcode) {
         Some(x) => x,
         _ => panic!("instruction not found")
     }
