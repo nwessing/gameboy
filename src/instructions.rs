@@ -285,6 +285,7 @@ pub fn get_instruction_set() -> Vec<Instruction> {
         Instruction::new("RRCA", 0x0F, 0, 4, Box::new(rotate_right_a)),
         Instruction::new("RRA", 0x1F, 0, 4, Box::new(rotate_right_a_through)),
 
+        Instruction::new("DAA", 0x27, 0, 4, Box::new(decimal_adjust_a)),
         Instruction::new("CPL", 0x2F, 0, 4, Box::new(complement_a)),
         Instruction::new("CCF", 0x3F, 0, 4, Box::new(complement_carry)),
         Instruction::new("SCF", 0x37, 0, 4, Box::new(set_carry)),
@@ -1378,4 +1379,59 @@ fn restart_30(gb: &mut GameBoy, _: u8, _: u8) {
 
 fn restart_38(gb: &mut GameBoy, _: u8, _: u8) {
     restart(gb, 0x38);
+}
+
+fn decimal_adjust_a(gb: &mut GameBoy, _: u8, _: u8) {
+    let a = gb.cpu.get_a();
+    let low = a & 0x0F;
+    let high = a & 0xF0;
+    let carry = gb.cpu.flag.carry;
+    let half_carry = gb.cpu.flag.half_carry;
+    if !gb.cpu.flag.subtract {
+        if high <= 0x90 && low <= 0x09 && !carry && !half_carry {
+            gb.cpu.flag.carry = false;
+        }
+
+        if (high <= 0x80 && low >= 0x0A && !carry && !half_carry) ||
+           (high <= 0x90 && low <= 0x03 && !carry && half_carry) {
+            gb.cpu.set_a(a.wrapping_add(0x06));
+            gb.cpu.flag.carry = false;
+        }
+
+        if (high >= 0xA0 && low <= 0x09 && !carry && !half_carry) ||
+           (high <= 0x20 && low <= 0x09 && carry && !half_carry) {
+            gb.cpu.set_a(a.wrapping_add(0x60));
+            gb.cpu.flag.carry = true;
+        }
+
+        if (high >= 0x90 && low >= 0x0A && !carry && !half_carry) ||
+           (high >= 0xA0 && low <= 0x03 && !carry && half_carry) ||
+           (high <= 0x20 && low >= 0x0A && carry && !half_carry) ||
+           (high <= 0x30 && low <= 0x03 && carry && half_carry) {
+            gb.cpu.set_a(a.wrapping_add(0x66));
+            gb.cpu.flag.carry = true;
+        }
+    } else {
+        if high <= 0x90 && low <= 0x09 && !carry && !half_carry {
+            gb.cpu.flag.carry = false;
+        }
+
+        if high <= 0x80 && low >= 0x06 && !carry && half_carry {
+            gb.cpu.set_a(a.wrapping_add(0xFA));
+            gb.cpu.flag.carry = false;
+        }
+
+        if high >= 0x70 && low <= 0x09 && carry && !half_carry {
+            gb.cpu.set_a(a.wrapping_add(0xA0));
+            gb.cpu.flag.carry = true;
+        }
+
+        if high >= 0x60 && high <= 0x70 && low >= 0x06 && carry && half_carry {
+            gb.cpu.set_a(a.wrapping_add(0x9A));
+            gb.cpu.flag.carry = true;
+        }
+    }
+
+    gb.cpu.flag.zero = gb.cpu.get_a() == 0;
+    gb.cpu.flag.half_carry = false;
 }

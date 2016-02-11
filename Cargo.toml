@@ -6,3 +6,6 @@ authors = ["nwessing <nwessing3@gmail.com>"]
 [dependencies]
 glium = "*"
 time = "*"
+
+[profile.dev]
+opt-level = 1
