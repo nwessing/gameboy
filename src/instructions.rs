@@ -1382,56 +1382,31 @@ fn restart_38(gb: &mut GameBoy, _: u8, _: u8) {
 }
 
 fn decimal_adjust_a(gb: &mut GameBoy, _: u8, _: u8) {
-    let a = gb.cpu.get_a();
-    let low = a & 0x0F;
-    let high = a & 0xF0;
-    let carry = gb.cpu.flag.carry;
-    let half_carry = gb.cpu.flag.half_carry;
-    if !gb.cpu.flag.subtract {
-        if high <= 0x90 && low <= 0x09 && !carry && !half_carry {
-            gb.cpu.flag.carry = false;
-        }
+    let mut a = gb.cpu.get_a() as u16;
 
-        if (high <= 0x80 && low >= 0x0A && !carry && !half_carry) ||
-           (high <= 0x90 && low <= 0x03 && !carry && half_carry) {
-            gb.cpu.set_a(a.wrapping_add(0x06));
-            gb.cpu.flag.carry = false;
+    if gb.cpu.flag.subtract {
+        if gb.cpu.flag.half_carry {
+            a = a.wrapping_sub(0x06);
+            a &= 0xFF;
         }
-
-        if (high >= 0xA0 && low <= 0x09 && !carry && !half_carry) ||
-           (high <= 0x20 && low <= 0x09 && carry && !half_carry) {
-            gb.cpu.set_a(a.wrapping_add(0x60));
-            gb.cpu.flag.carry = true;
-        }
-
-        if (high >= 0x90 && low >= 0x0A && !carry && !half_carry) ||
-           (high >= 0xA0 && low <= 0x03 && !carry && half_carry) ||
-           (high <= 0x20 && low >= 0x0A && carry && !half_carry) ||
-           (high <= 0x30 && low <= 0x03 && carry && half_carry) {
-            gb.cpu.set_a(a.wrapping_add(0x66));
-            gb.cpu.flag.carry = true;
+        if gb.cpu.flag.carry {
+            a = a.wrapping_sub(0x60);
         }
     } else {
-        if high <= 0x90 && low <= 0x09 && !carry && !half_carry {
-            gb.cpu.flag.carry = false;
+        if a & 0x0F > 0x09 || gb.cpu.flag.half_carry {
+            a = a.wrapping_add(0x06);
         }
 
-        if high <= 0x80 && low >= 0x06 && !carry && half_carry {
-            gb.cpu.set_a(a.wrapping_add(0xFA));
-            gb.cpu.flag.carry = false;
-        }
-
-        if high >= 0x70 && low <= 0x09 && carry && !half_carry {
-            gb.cpu.set_a(a.wrapping_add(0xA0));
-            gb.cpu.flag.carry = true;
-        }
-
-        if high >= 0x60 && high <= 0x70 && low >= 0x06 && carry && half_carry {
-            gb.cpu.set_a(a.wrapping_add(0x9A));
-            gb.cpu.flag.carry = true;
+        if a > 0x9F || gb.cpu.flag.carry {
+            a = a.wrapping_add(0x60);
         }
     }
 
-    gb.cpu.flag.zero = gb.cpu.get_a() == 0;
     gb.cpu.flag.half_carry = false;
+    if a > 0xFF {
+        gb.cpu.flag.carry = true;
+    }    
+    a &= 0xFF;
+    gb.cpu.set_a(a as u8);
+    gb.cpu.flag.zero = a == 0;
 }

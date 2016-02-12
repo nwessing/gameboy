@@ -21,10 +21,10 @@ use std::path;
 use game_boy::GameBoy;
 
 fn main() {
-    // let mut game_file = fs::File::open("roms/Tetris (JUE) (V1.1) [!].gb").unwrap();
+    let mut game_file = fs::File::open("roms/Tetris (JUE) (V1.1) [!].gb").unwrap();
     // let mut game_file = fs::File::open("roms/opus5.gb").unwrap();
     // let mut game_file = fs::File::open("roms/cpu_instrs/cpu_instrs.gb").unwrap();
-    let mut game_file = fs::File::open("roms/cpu_instrs/individual/01-special.gb").unwrap();
+    // let mut game_file = fs::File::open("roms/cpu_instrs/individual/01-special.gb").unwrap();
     // let mut game_file = fs::File::open("roms/cpu_instrs/individual/02-interrupts.gb").unwrap();    
     // let mut game_file = fs::File::open("roms/cpu_instrs/individual/03-op sp,hl.gb").unwrap();    
     // let mut game_file = fs::File::open("roms/cpu_instrs/individual/04-op r,imm.gb").unwrap();    

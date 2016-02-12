@@ -1,4 +1,3 @@
-use std::cmp;
 use glium;
 use glium::backend::glutin_backend::GlutinFacade;
 use glium::Surface;
@@ -12,10 +11,10 @@ const SCROLL_X_REG: u16 = 0xFF43;
 const SPRITE_DATA_REG: u16 = 0xFE00;
 // const WINDOW_Y_REG: u16 = 0xFF4A;
 // const WINDOW_X_REG: u16 = 0xFF4B;
-const LCDC_Y_COORD: u16 = 0xFF44;
+// const LCDC_Y_COORD: u16 = 0xFF44;
 const MODE_FLAG_MASK: u8 = 0b1111_1100;
 
-const VERTICAL_RES: u8 = 144;
+// const VERTICAL_RES: u8 = 144;
 const HORIZONTAL_RES: u8 = 160;
 
 const MODE0_HBLANK: u8 = 0;
@@ -28,6 +27,72 @@ pub struct Gpu {
     window: GlutinFacade,
     window_buf: Vec<Vec<(u8, u8, u8)>>,
     ticks: u64
+}
+
+struct Sprite {
+    y_pos: i16,
+    x_pos: i16,
+    tile_pattern_addr: u16,
+    attributes: u8,
+    index: u8
+}
+
+impl Sprite {
+    fn new(gb: &GameBoy, sprite_index: u8) -> Sprite {
+        let sprite_addr = SPRITE_DATA_REG + ((sprite_index as u16) * 4);
+        let top = (gb.memory.get_byte(sprite_addr) as i16) - 16;
+        let left = (gb.memory.get_byte(sprite_addr + 1) as i16) - 8;
+        let tile_pattern_index = gb.memory.get_byte(sprite_addr + 2);
+        let tile_pattern_addr = get_sprite_tile_addr(tile_pattern_index);
+        let attributes = gb.memory.get_byte(sprite_addr + 3);
+        Sprite {
+            y_pos: top,
+            x_pos: left,
+            tile_pattern_addr: tile_pattern_addr,
+            attributes: attributes, 
+            index: sprite_index
+        }
+    }
+
+    pub fn index(&self) -> u8{
+        self.index
+    }
+
+    pub fn left(&self) -> i16 {
+        self.x_pos
+    }
+
+    pub fn top(&self) -> i16 {
+        self.y_pos
+    }
+
+    pub fn right(&self) -> i16 {
+        self.x_pos + 8
+    }
+
+    pub fn bottom(&self) -> i16 {
+        self.y_pos + 8
+        //TODO 16px tall sprites
+    }
+
+    pub fn get_tile_pattern(&self, gb: &GameBoy, scan_line: u8) -> u16 {
+        //TODO 16px tall sprites
+        let sprite_y = (((scan_line as i16) - self.top()) % 8) as u16;
+        let pattern = gb.memory.get_word(self.tile_pattern_addr + (sprite_y * 2));
+        pattern
+    }
+
+    fn get_palette(&self, gb: &GameBoy) -> u8 {
+        if self.attributes & 0x10 == 0x10 {
+           gb.memory.get_byte(0xFF49)
+        } else {
+           gb.memory.get_byte(0xFF48)
+        }
+    }
+
+    pub fn above_bg(&self) -> bool {
+        self.attributes & 0x80 == 0x80
+    }
 }
 
 impl Gpu {
@@ -48,7 +113,7 @@ impl Gpu {
         
         if !display_enabled(gb) {
             if prev_mode != MODE1_VBLANK {
-                panic!("LCD turned off outside of VBLANK, this should not happen.");
+                println!("LCD turned off outside of VBLANK, this should not happen.");
             }
             gb.memory.set_scan_line(0);
             return;
@@ -82,7 +147,7 @@ impl Gpu {
         }
         
         if prev_mode == MODE0_HBLANK && mode == MODE1_VBLANK {
-            self.render_screen(gb);
+            self.render_screen();
             // if 0xFFFF & 0x01 == 0x01 {
                 let int_flags = gb.memory.get_byte(0xFF0F);
                 gb.memory.set_byte(0xFF0F, int_flags | 0x01);
@@ -96,105 +161,103 @@ impl Gpu {
     }
 
     pub fn draw_scan_line(&mut self, gb: &GameBoy, scan_line: u8) {
-        let display_on = display_enabled(gb);
         let tile_map_addr = if bg_tile_map(gb) == 1 { 0x9C00 } else { 0x9800 };
         let bg_palette = bg_palette(gb);
 
         let scroll_y = gb.memory.get_byte(SCROLL_Y_REG) as u16;
         let scroll_x = gb.memory.get_byte(SCROLL_X_REG) as u16;
 
-        let mut y = scroll_y + (scan_line as u16);
-        if y > 255 {
-            y -= 256;
+        let mut y_bg = scroll_y + (scan_line as u16);
+        if y_bg > 255 {
+            y_bg -= 256;
         }
-        let base_tile_map_index = (y as u16) / 8 * 32;
+        let base_tile_map_index = (y_bg as u16) / 8 * 32;
 
-        for x in scroll_x..(scroll_x + (HORIZONTAL_RES as u16)) {
-            let mut x = x;
-            if x > 255 {
-                x -= 256;
+        let sprites = get_sprites_in_scan_line(gb, scan_line);
+        let mut i_sprite = 0;
+        for x in 0..HORIZONTAL_RES {
+            let mut x_bg = (x as u16) + scroll_x;
+            if x_bg > 255 {
+                x_bg -= 256;
+            }
+            let x_bg = x_bg;
+
+            let tile_index = base_tile_map_index + ((x_bg / 8) as u16);
+            let tile_data_index = gb.memory.get_byte(tile_map_addr + tile_index);
+            let base_bg_tile_pattern_addr = get_bg_tile_addr(gb, tile_data_index);
+            let bg_pattern_y = (y_bg % 8) as u16;
+            let bg_tile_pattern = gb.memory.get_word(base_bg_tile_pattern_addr + (bg_pattern_y * 2));
+            let bg_palette_index = get_palette_index(bg_tile_pattern, (7 - (x_bg % 8)) as u8);
+            let bg_color_id = get_palette_color(bg_palette, bg_palette_index as u8);
+
+            let mut draw_bg = true;
+            if i_sprite < sprites.len() {
+                let sprite = &sprites[i_sprite];
+                if sprite.left() <= (x as i16) && (sprite.above_bg() || bg_palette_index == 0) {
+                    let sprite_pattern = sprite.get_tile_pattern(gb, scan_line);
+                    let sprite_x = (7 - (((x as i16) - sprite.left()) % 8)) as u8;
+                    let sprite_palette_index = get_palette_index(sprite_pattern, sprite_x);
+                    let sprite_palette = sprite.get_palette(gb);
+                    let sprite_color_id = get_palette_color(sprite_palette, sprite_palette_index);
+                    let sprite_color = get_color(sprite_color_id);
+                    self.window_buf[scan_line as usize][x as usize] = sprite_color;
+                    draw_bg = false;
+                }
+                if sprite.right() - 1 <= (x as i16) {
+                    i_sprite += 1;
+                }
             }
 
-            let tile_index = base_tile_map_index + ((x / 8) as u16);
-            let tile_data_index = gb.memory.get_byte(tile_map_addr + tile_index);
-            let sprite_addr = get_bg_tile_addr(gb, tile_data_index);
-
-            let sprite_scan_line = (y % 8) as u16;
-            let sprite = gb.memory.get_word(sprite_addr + (sprite_scan_line*2));
-
-            let sprite_x_index =  7 - (x % 8);
-            let palette_index = ((sprite >> sprite_x_index) &0b1) | ((sprite >> (sprite_x_index+7)) &0b10);
-            let color_id = get_palette_color(bg_palette, palette_index as u8);
-            let color = get_color(color_id);
-            self.window_buf[scan_line as usize][(x - scroll_x) as usize] = color;
+            if draw_bg {
+                let bg_color = get_color(bg_color_id);
+                self.window_buf[scan_line as usize][x as usize] = bg_color;    
+            }
+            
         }
-
-        for i_sprite in 0..40 {
-            let sprite_addr = SPRITE_DATA_REG + (i_sprite * 4);
-            let top = (gb.memory.get_byte(sprite_addr) as i16) - 16;
-            let bottom = top + 8;
-            if top <= (scan_line as i16) && bottom > (scan_line as i16) {
-                let right = gb.memory.get_byte(sprite_addr + 1) as i16;
-                let left = right - 8;
-
-                let sprite_pattern_index = gb.memory.get_byte(sprite_addr + 2);
-                let sprite_tile_addr = get_sprite_tile_addr(gb, sprite_pattern_index);
-                let sprite_scan_line = (((scan_line as i16) - top) % 8) as u16;
-                let sprite = gb.memory.get_word(sprite_tile_addr + (sprite_scan_line * 2));
-                let sprite_attrs = gb.memory.get_byte(sprite_tile_addr + 3);
-                let palette = sprite_pallete(gb, sprite_attrs);
-
-                for x_pix in left..right {
-                    if x_pix < 0 || x_pix >= (HORIZONTAL_RES as i16) {
-                        continue;
-                    }
-                    let sprite_x_index = 7 - (x_pix % 8);
-                    let palette_index = ((sprite >> sprite_x_index) &0b1) | ((sprite >> (sprite_x_index+7)) &0b10);
-                    let color_id = get_palette_color(palette, palette_index as u8);
-                    let color = get_color(color_id);
-                    self.window_buf[scan_line as usize][x_pix as usize] = color;
-                }
-            } 
-        }
-        // for x in 0..HORIZONTAL_RES {
-
-        // }
     }
 
-    // fn draw_tile_scan_line(&mut self, ) {
-
-    // }
-
-    pub fn render_screen(&mut self, gb: &GameBoy) {
+    pub fn render_screen(&mut self) {
         let target = self.window.draw();
         let mut reversed_buf = self.window_buf.clone();
         reversed_buf.reverse();
         let texture = glium::Texture2d::new(&self.window, reversed_buf).unwrap();
         texture.as_surface().fill(&target, glium::uniforms::MagnifySamplerFilter::Nearest);
         target.finish().unwrap();
-        // print_tile_map(gb);
     }
 }
 
-fn print_tile_data(gb: &GameBoy) {
-    println!("FRAME FINISHED; Tile Data:");
-    for addr in 0x8000..0x9000 {
-        print!("{:02x}", gb.memory.get_byte(addr));
+fn get_sprites_in_scan_line(gb: &GameBoy, scan_line: u8) -> Vec<Sprite> {
+    let mut sprites: Vec<Sprite> = vec![];
+    for i_sprite in 0..40 {
+        let sprite = Sprite::new(gb, i_sprite);
+        if sprite.top() <= (scan_line as i16) && sprite.bottom() > (scan_line as i16) {
+            let mut insertion_index = sprites.len();
+            for (i, existing_sprite) in sprites.iter().enumerate() {
+                if existing_sprite.left() > sprite.left() ||
+                   (existing_sprite.left() == sprite.left() && sprite.index() > existing_sprite.index()) {
+                    insertion_index = i;
+                    break;
+                }
+            }
+            sprites.insert(insertion_index, sprite);
+            if sprites.len() >= 10 {
+                break;
+            }
+        }
     }
+    sprites.truncate(10);
+    sprites
 }
 
-fn print_tile_map(gb: &GameBoy) {
-    println!("FRAME FINISHED; Tile Map:");
-    for addr in 0x9800..0xA000 {
-        print!("{:02x}", gb.memory.get_byte(addr));
-    }
+fn get_palette_index(pattern: u16, x: u8) -> u8 {
+    (((pattern >> x) & 0b1) | ((pattern >> (x+7)) & 0b10)) as u8
 }
 
 fn new_window_buf() -> Vec<Vec<(u8, u8, u8)>> {
     let mut window_buf: Vec<Vec<(u8, u8, u8)>> = Vec::new();
     for iy in 0..144 {
         window_buf.push(Vec::<(u8, u8, u8)>::new());
-        for ix in 0..160 {
+        for _ in 0..160 {
             window_buf[iy as usize].push((255u8, 0u8, 0u8));
         } 
     }
@@ -205,9 +268,9 @@ fn display_enabled(gb: &GameBoy) -> bool {
     gb.memory.get_byte(LCD_CONTROL_REG) & 0x80 == 0x80
 }
 
-fn window_tile_map(gb: &GameBoy) -> u8 {
-    gb.memory.get_byte(LCD_CONTROL_REG) >> 6 &0b1
-}
+// fn window_tile_map(gb: &GameBoy) -> u8 {
+//     gb.memory.get_byte(LCD_CONTROL_REG) >> 6 &0b1
+// }
 
 fn bg_tile_map(gb: &GameBoy) -> u8 {
     gb.memory.get_byte(LCD_CONTROL_REG) >> 3 &0b1
@@ -217,25 +280,17 @@ fn bg_palette(gb: &GameBoy) -> u8 {
     gb.memory.get_byte(0xFF47)
 }
 
-fn sprite_pallete(gb: &GameBoy, sprite_attr: u8) -> u8 {
-    if sprite_attr & 0x10 == 0x10 {
-       gb.memory.get_byte(0xFF49)
-    } else {
-       gb.memory.get_byte(0xFF48)
-    }
-}
-
 fn tile_data(gb: &GameBoy) -> u8 {
     gb.memory.get_byte(0xFF40) >> 4 &0b1
 }
 
-fn get_sprite_tile_addr(gb: &GameBoy, tile_index: u8) -> u16 {
+fn get_sprite_tile_addr(tile_index: u8) -> u16 {
     0x8000 + ((tile_index as u16) * 16)
 }
 
 fn get_bg_tile_addr(gb: &GameBoy, tile_index: u8) -> u16 {
     if tile_data(gb) == 1 {
-        get_sprite_tile_addr(gb, tile_index)
+        get_sprite_tile_addr(tile_index)
     } else {
         let signed_index = tile_index as i8;
         ((0x9000i32 + (signed_index as i32)) as u32) as u16
