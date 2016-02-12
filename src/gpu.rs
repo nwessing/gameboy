@@ -1,7 +1,11 @@
 use glium;
 use glium::backend::glutin_backend::GlutinFacade;
 use glium::Surface;
+use glutin::Event;
+use glutin::ElementState;
+use glutin::VirtualKeyCode;
 use game_boy::GameBoy;
+use controller::Controller;
 
 const LCD_CONTROL_REG: u16 = 0xFF40;
 const LCDC_STATUS_REG: u16 = 0xFF41;
@@ -223,6 +227,34 @@ impl Gpu {
         let texture = glium::Texture2d::new(&self.window, reversed_buf).unwrap();
         texture.as_surface().fill(&target, glium::uniforms::MagnifySamplerFilter::Nearest);
         target.finish().unwrap();
+    }
+
+    pub fn check_input(&self, controller: &mut Controller) {
+        for event in self.window.poll_events() {
+            match event {
+                Event::KeyboardInput(state, scan_code, v_key_code) => handle_input(controller, state, v_key_code),
+                _ => ()
+            }
+        }
+    }
+}
+
+fn handle_input(controller: &mut Controller, state: ElementState, key: Option<VirtualKeyCode>) {
+    if key.is_none() {
+        return;
+    }
+
+    let pressed = state == ElementState::Pressed;
+    match key.unwrap() {
+        VirtualKeyCode::W => controller.up_changed(pressed),
+        VirtualKeyCode::A => controller.left_changed(pressed),
+        VirtualKeyCode::S => controller.down_changed(pressed),
+        VirtualKeyCode::D => controller.right_changed(pressed),
+        VirtualKeyCode::M => controller.b_changed(pressed),
+        VirtualKeyCode::K => controller.a_changed(pressed),
+        VirtualKeyCode::J => controller.start_changed(pressed),
+        VirtualKeyCode::H => controller.select_changed(pressed),
+        _ => ()
     }
 }
 

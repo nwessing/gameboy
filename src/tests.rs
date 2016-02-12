@@ -1,4 +1,5 @@
 use instructions;
+use cb_instructions;
 use cpu::InstructionSet;
 use game_boy::GameBoy;
 use util;
@@ -10,6 +11,15 @@ fn test() {
         for j in 0..instructions.len() {
             if instructions[i].opcode == instructions[j].opcode && i != j {
                 panic!("Duplicate opcode found {:02X}", instructions[i].opcode);
+            }
+        }
+    }
+
+    let cb_instructions = cb_instructions::get_cb_instruction_set();
+    for i in 0..cb_instructions.len() {
+        for j in 0..cb_instructions.len() {
+            if cb_instructions[i].opcode == cb_instructions[j].opcode && i != j {
+                panic!("Duplicate opcode found CB{:02X}", cb_instructions[i].opcode);
             }
         }
     }

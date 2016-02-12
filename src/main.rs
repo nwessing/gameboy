@@ -8,10 +8,12 @@ mod math;
 mod gpu;
 mod clock;
 mod interrupts;
+mod controller;
 mod tests;
 
 #[macro_use]
 extern crate glium;
+extern crate glutin;
 extern crate time;
 
 use std::io;
@@ -51,6 +53,7 @@ fn main() {
     gb.load_rom(&game_buf);
 
     let mut gpu = gpu::Gpu::new();
+    let mut controller = controller::Controller::new();
     let mut debug_mode = false;
 
     let skip_boot = true;
@@ -102,6 +105,8 @@ fn main() {
 
         gb.clock.tick(instruction.cycles);
         gpu.update(&mut gb, instruction.cycles);
+        gpu.check_input(&mut controller);
+        controller.update_joypad_register(&mut gb);
         interrupts::check_interrupts(&mut gb);
 
         if debug_mode {
