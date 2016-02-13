@@ -32,7 +32,6 @@ pub fn check_interrupts(gb: &mut GameBoy) {
 }
 
 fn handle_interrupt(gb: &mut GameBoy, flags: u8, interrupt: u8) {
-    // println!("Handling interrupt {:02X}", interrupt);
     gb.cpu.interrupt_enable_master = false;
     gb.memory.set_byte(INTERRUPT_FLAG_REG, flags & !interrupt);
     let pc = gb.cpu.pc;

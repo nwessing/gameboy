@@ -63,10 +63,6 @@ impl Memory {
     }
 
     pub fn get_byte(&self, address: u16) -> u8 {
-        if address >= 0xFF04 && address < 0xFF08 {
-            println!("Reading timer data at {:04X}", address);
-        }
-
         if address < 0x100 && self.mem[0xFF50] == 0 {
             return self.boot_rom[address as usize];
         }
@@ -79,8 +75,9 @@ impl Memory {
     }
 
     pub fn set_byte(&mut self, address: u16, b: u8) {
-        if address >= 0xFF04 && address < 0xFF08 {
-            println!("Writing timer data, value {:02X} at {:04X}", b, address);
+        if address == 0xFF04 {
+            //Timer divider register
+            self.mem[address as usize] = 0;
         }
 
         if address == 0xFF40 {
@@ -122,6 +119,10 @@ impl Memory {
         }
 
         self.mem[address as usize] = b;
+    }
+
+    pub fn set_owned_byte(&mut self, address: u16, value: u8) {
+        self.mem[address as usize] = value;
     }
 
     pub fn set_scan_line(&mut self, b: u8) {

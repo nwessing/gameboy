@@ -19,7 +19,6 @@ extern crate time;
 use std::io;
 use std::io::prelude::*;
 use std::fs;
-use std::path;
 use game_boy::GameBoy;
 
 fn main() {
@@ -52,6 +51,7 @@ fn main() {
     gb.load_boot_rom(&boot_buf);
     gb.load_rom(&game_buf);
 
+    let mut clock = clock::Clock::new();
     let mut gpu = gpu::Gpu::new();
     let mut controller = controller::Controller::new();
     let mut debug_mode = false;
@@ -62,7 +62,7 @@ fn main() {
         gb.cpu.pc = 0x100;
     }
 
-    gb.clock.start();
+    clock.start();
     loop {        
 
         let mut opcode = gb.memory.get_byte(gb.cpu.pc);
@@ -103,7 +103,7 @@ fn main() {
         
         (instruction.exec)(&mut gb, arg1, arg2);
 
-        gb.clock.tick(instruction.cycles);
+        clock.tick(&mut gb, instruction.cycles);
         gpu.update(&mut gb, instruction.cycles);
         gpu.check_input(&mut controller);
         controller.update_joypad_register(&mut gb);

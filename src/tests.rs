@@ -1,9 +1,3 @@
-use instructions;
-use cb_instructions;
-use cpu::InstructionSet;
-use game_boy::GameBoy;
-use util;
-
 #[test]
 fn test() {
     let instructions = instructions::get_instruction_set();
@@ -78,11 +72,4 @@ fn adding_usign_and_sign() {
     (jump_plus_signed.exec)(&mut gb, 0xFE, 0xC9);
 
     assert_eq!(0xCBAE, gb.cpu.pc);
-}
-
-fn get_instruction(is: &InstructionSet, opcode: u8) -> &instructions::Instruction {
-    match is.get_instruction(opcode) {
-        Some(x) => x,
-        _ => panic!("instruction not found")
-    }
 }

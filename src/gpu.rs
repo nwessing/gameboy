@@ -117,7 +117,7 @@ impl Gpu {
         
         if !display_enabled(gb) {
             if prev_mode != MODE1_VBLANK {
-                println!("LCD turned off outside of VBLANK, this should not happen.");
+                // println!("LCD turned off outside of VBLANK, this should not happen.");
             }
             gb.memory.set_scan_line(0);
             return;
@@ -232,7 +232,7 @@ impl Gpu {
     pub fn check_input(&self, controller: &mut Controller) {
         for event in self.window.poll_events() {
             match event {
-                Event::KeyboardInput(state, scan_code, v_key_code) => handle_input(controller, state, v_key_code),
+                Event::KeyboardInput(state, _, v_key_code) => handle_input(controller, state, v_key_code),
                 _ => ()
             }
         }
@@ -272,9 +272,6 @@ fn get_sprites_in_scan_line(gb: &GameBoy, scan_line: u8) -> Vec<Sprite> {
                 }
             }
             sprites.insert(insertion_index, sprite);
-            if sprites.len() >= 10 {
-                break;
-            }
         }
     }
     sprites.truncate(10);

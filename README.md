@@ -4,11 +4,10 @@ User must change the code in order to change which rom is loaded as of right now
 
 ### To do
  - horizontal and vertical flipping for sprites
- - timer
+ - 16 pixel tall sprites
+ - render the window
  - joypad interrupt
  - LCD status interrupt
- - timer interrupt
- - render the window
  - finish regular instructions
  - finish extended instructions
  - sound

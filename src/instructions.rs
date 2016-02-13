@@ -1,6 +1,4 @@
 use game_boy::GameBoy;
-use util::to_signed_word;
-use util::to_unsigned_word;
 use util::concat_bytes;
 use util::push_word;
 use util::Reg8;
@@ -1069,11 +1067,6 @@ fn load_a_mem_bc(gb: &mut GameBoy, _: u8, _: u8) {
 
 fn load_a_mem_de(gb: &mut GameBoy, _: u8, _: u8) {
     let val = gb.memory.get_byte(gb.cpu.de);
-    gb.cpu.set_a(val);
-}
-
-fn load_a_mem_hl(gb: &mut GameBoy, _: u8, _: u8) {
-    let val = gb.memory.get_byte(gb.cpu.hl);
     gb.cpu.set_a(val);
 }
 
