@@ -13,6 +13,8 @@ const SCROLL_Y_REG: u16 = 0xFF42;
 const SCROLL_X_REG: u16 = 0xFF43;
 
 const SPRITE_DATA_REG: u16 = 0xFE00;
+const OBJECT_PALETTE0_DATA_REG: u16 = 0xFF48;
+const OBJECT_PALETTE1_DATA_REG: u16 = 0xFF49;
 // const WINDOW_Y_REG: u16 = 0xFF4A;
 // const WINDOW_X_REG: u16 = 0xFF4B;
 // const LCDC_Y_COORD: u16 = 0xFF44;
@@ -33,6 +35,7 @@ pub struct Gpu {
     ticks: u64
 }
 
+#[derive(Debug)]
 struct Sprite {
     y_pos: i16,
     x_pos: i16,
@@ -88,14 +91,14 @@ impl Sprite {
 
     fn get_palette(&self, gb: &GameBoy) -> u8 {
         if self.attributes & 0x10 == 0x10 {
-           gb.memory.get_byte(0xFF49)
+           gb.memory.get_byte(OBJECT_PALETTE1_DATA_REG)
         } else {
-           gb.memory.get_byte(0xFF48)
+           gb.memory.get_byte(OBJECT_PALETTE0_DATA_REG)
         }
     }
 
     pub fn above_bg(&self) -> bool {
-        self.attributes & 0x80 == 0x80
+        self.attributes & 0x80 == 0x00
     }
 }
 
@@ -201,11 +204,13 @@ impl Gpu {
                     let sprite_pattern = sprite.get_tile_pattern(gb, scan_line);
                     let sprite_x = (7 - (((x as i16) - sprite.left()) % 8)) as u8;
                     let sprite_palette_index = get_palette_index(sprite_pattern, sprite_x);
-                    let sprite_palette = sprite.get_palette(gb);
-                    let sprite_color_id = get_palette_color(sprite_palette, sprite_palette_index);
-                    let sprite_color = get_color(sprite_color_id);
-                    self.window_buf[scan_line as usize][x as usize] = sprite_color;
-                    draw_bg = false;
+                    if sprite_palette_index != 0 {
+                        let sprite_palette = sprite.get_palette(gb);
+                        let sprite_color_id = get_palette_color(sprite_palette, sprite_palette_index);
+                        let sprite_color = get_color(sprite_color_id);
+                        self.window_buf[scan_line as usize][x as usize] = sprite_color;
+                        draw_bg = false;  
+                    }
                 }
                 if sprite.right() - 1 <= (x as i16) {
                     i_sprite += 1;

@@ -67,7 +67,7 @@ impl Memory {
             return self.boot_rom[address as usize];
         }
 
-        if address >= 0xE000 && address <= 0xFE00 {
+        if address >= 0xE000 && address < 0xFE00 {
             return self.mem[(address - 0x2000) as usize];
         }
 
@@ -96,6 +96,14 @@ impl Memory {
         if address >= 0xFEA0 && address < 0xFF00 {
             //Unusable
             return;
+        }
+
+        if address >= 0xFE00 && address < 0xFEA0 {
+            //Can only write during HBLANK and BLANK
+            let lcd_mode = self.mem[0xFF41] & 0b11;
+            if lcd_mode == 0 || lcd_mode == 1 {
+                return;
+            }
         }
         
         if address >= 0xE000 && address < 0xFE00 {
