@@ -165,32 +165,42 @@ impl Cpu {
 }
 
 pub struct InstructionSet {
-    instructions: Vec<Instruction>,
-    cb_instructions: Vec<Instruction>
+    instructions: Vec<Option<Instruction>>,
+    cb_instructions: Vec<Option<Instruction>>
 }
 
 impl InstructionSet {
     pub fn new() -> InstructionSet {
+        let mut instructions = get_instruction_set();
+        let mut instruction_map = Vec::with_capacity(0x100);
+        for _ in 0..instruction_map.capacity() {
+            instruction_map.push(None);
+        }
+        for ins in instructions.drain(..) {
+            let opcode = ins.opcode;
+            instruction_map[opcode as usize] = Some(ins);
+        }
+
+        let mut cb_instructions = get_cb_instruction_set();
+        let mut cb_instruction_map = Vec::with_capacity(0x100);
+        for _ in 0..cb_instruction_map.capacity() {
+            cb_instruction_map.push(None);
+        }
+        for ins in cb_instructions.drain(..) {
+            let opcode = ins.opcode;
+            cb_instruction_map[opcode as usize] = Some(ins);
+        }
+
         InstructionSet {
-            instructions: get_instruction_set(),
-            cb_instructions: get_cb_instruction_set()
+            instructions: instruction_map,
+            cb_instructions: cb_instruction_map
         }
     }
     pub fn get_instruction(&self, opcode: u8) -> Option<&Instruction> {
-        for ins in self.instructions.iter() {
-            if ins.opcode == opcode {
-                return Some(&ins);
-            }
-        }
-        None
+        self.instructions[opcode as usize].as_ref()
     }
 
     pub fn get_cb_instruction(&self, opcode: u8) -> Option<&Instruction> {
-        for ins in self.cb_instructions.iter() {
-            if ins.opcode == opcode {
-                return Some(&ins);
-            }
-        }
-        None
+        self.cb_instructions[opcode as usize].as_ref()
     }
 }
