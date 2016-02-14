@@ -105,7 +105,7 @@ fn main() {
 
         clock.tick(&mut gb, instruction.cycles);
         gpu.update(&mut gb, instruction.cycles);
-        gpu.check_input(&mut controller);
+        gpu.check_input(&mut gb, &mut controller);
         controller.update_joypad_register(&mut gb);
         interrupts::check_interrupts(&mut gb);
 
@@ -113,6 +113,9 @@ fn main() {
             println!("{}", gb.cpu);
         }
 
+        if gb.exit_requested() {
+            break;
+        }
         // if gb.clock.current_tick() >= (4_194_304) * 2 {
         //     let path = path::Path::new("out.txt");
         //     let mut file = fs::File::create(&path).unwrap();

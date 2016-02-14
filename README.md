@@ -2,7 +2,9 @@
 
 User must change the code in order to change which rom is loaded as of right now.
 
-### To do
+### Controls
+
+### To Do
  - horizontal and vertical flipping for sprites
  - sprite transparent color
  - 16 pixel tall sprites

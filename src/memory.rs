@@ -98,10 +98,29 @@ impl Memory {
             return;
         }
 
+        if address == 0xFF44 {
+            //LCDC Y-Coordinate is read only
+            return;
+        }
+
+        if address == 0xFF41 {
+            // lower two bits representing LCD mode are read only
+            let read_only_part = self.mem[0xFF41] & 0b11;
+            self.mem[0xFF41 as usize] = (b & 0b1111_1100) | read_only_part;
+        }
+
         if address >= 0xFE00 && address < 0xFEA0 {
-            //Can only write during HBLANK and BLANK
+            //Can only write OAM during HBLANK and BLANK
             let lcd_mode = self.mem[0xFF41] & 0b11;
-            if lcd_mode == 0 || lcd_mode == 1 {
+            if lcd_mode == 2 || lcd_mode == 3 {
+                return;
+            }
+        }
+
+        if address >= 0x8000 && address < 0xA000 {
+            // Cannot write VRAM during LCD mode 3 accessing VRAM
+            let lcd_mode = self.mem[0xFF41] & 0b11;
+            if lcd_mode == 3 {
                 return;
             }
         }
@@ -118,10 +137,9 @@ impl Memory {
         }
 
         if address == 0xFF46 {
-            // println!("OAM Transfer {:02X}", b);
+            // OAM DMA transfer
             for trans_addr in 0x00..0xA0 {
                 self.mem[(0xFE00 + (trans_addr as u16)) as usize] = self.mem[concat_bytes(b, trans_addr) as usize];
-                // println!("{:04X} is {:02X}", concat_bytes(b, trans_addr), self.mem[concat_bytes(b, trans_addr) as usize]);
             }
             // return;
         }
@@ -133,10 +151,6 @@ impl Memory {
         self.mem[address as usize] = value;
     }
 
-    pub fn set_scan_line(&mut self, b: u8) {
-        self.mem[0xFF44] = b;
-    }
-
     pub fn get_word(&self, address: u16) -> u16 {
         let lower = self.get_byte(address);
         let upper = self.get_byte(address + 1);
@@ -146,8 +160,5 @@ impl Memory {
     pub fn set_word(&mut self, address: u16, word: u16) {
         self.set_byte(address, get_lower(word));
         self.set_byte(address + 1, get_upper(word));
-
-        // self.mem[address as usize] = get_lower(word);
-        // self.mem[(address + 1) as usize] = get_upper(word);
     }
 }

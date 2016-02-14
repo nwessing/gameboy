@@ -3,14 +3,16 @@ use memory::Memory;
 
 pub struct GameBoy {
     pub cpu: Cpu,
-    pub memory: Memory
+    pub memory: Memory,
+    exit_requested: bool
 }
 
 impl GameBoy {
     pub fn new() -> GameBoy{
         GameBoy {
             cpu: Cpu::new(),
-            memory: Memory::new()
+            memory: Memory::new(),
+            exit_requested: false
         }
     }
 
@@ -25,5 +27,13 @@ impl GameBoy {
 
     pub fn load_rom(&mut self, rom_buf: &Vec<u8>) {
         self.memory.load_rom(rom_buf);
+    }
+
+    pub fn request_exit(&mut self) {
+        self.exit_requested = true;
+    }
+
+    pub fn exit_requested(&self) -> bool {
+        self.exit_requested
     }
 }

@@ -17,7 +17,7 @@ const OBJECT_PALETTE0_DATA_REG: u16 = 0xFF48;
 const OBJECT_PALETTE1_DATA_REG: u16 = 0xFF49;
 // const WINDOW_Y_REG: u16 = 0xFF4A;
 // const WINDOW_X_REG: u16 = 0xFF4B;
-// const LCDC_Y_COORD: u16 = 0xFF44;
+const LCDC_Y_COORD: u16 = 0xFF44;
 const MODE_FLAG_MASK: u8 = 0b1111_1100;
 
 // const VERTICAL_RES: u8 = 144;
@@ -122,7 +122,7 @@ impl Gpu {
             if prev_mode != MODE1_VBLANK {
                 // println!("LCD turned off outside of VBLANK, this should not happen.");
             }
-            gb.memory.set_scan_line(0);
+            gb.memory.set_owned_byte(LCDC_Y_COORD, 0);
             return;
         }
         
@@ -157,14 +157,12 @@ impl Gpu {
             self.render_screen();
             // if 0xFFFF & 0x01 == 0x01 {
                 let int_flags = gb.memory.get_byte(0xFF0F);
-                gb.memory.set_byte(0xFF0F, int_flags | 0x01);
+                gb.memory.set_owned_byte(0xFF0F, int_flags | 0x01);
             // }
         }
 
-        // println!("total ticks: {}, frame: {}, scan line: {}, mode: {}, delta ticks: {}, sl ticks: {}", self.ticks, self.ticks / frame, scan_line,  mode, ticks, scan_line_clk);
-
-        gb.memory.set_scan_line(scan_line);
-        gb.memory.set_byte(LCDC_STATUS_REG, (status & MODE_FLAG_MASK) | mode);
+        gb.memory.set_owned_byte(LCDC_Y_COORD, scan_line);
+        gb.memory.set_owned_byte(LCDC_STATUS_REG, (status & MODE_FLAG_MASK) | mode);
     }
 
     pub fn draw_scan_line(&mut self, gb: &GameBoy, scan_line: u8) {
@@ -234,10 +232,11 @@ impl Gpu {
         target.finish().unwrap();
     }
 
-    pub fn check_input(&self, controller: &mut Controller) {
+    pub fn check_input(&self, gb: &mut GameBoy, controller: &mut Controller) {
         for event in self.window.poll_events() {
             match event {
                 Event::KeyboardInput(state, _, v_key_code) => handle_input(controller, state, v_key_code),
+                Event::Closed => gb.request_exit(),
                 _ => ()
             }
         }
