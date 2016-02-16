@@ -4,12 +4,9 @@ use util::push_word;
 use util::Reg8;
 use util::get_reg8;
 use util::set_reg8;
-use cb_instructions::rotate_left_a_through;
-use cb_instructions::rotate_left_a;
-use cb_instructions::rotate_right_a_through;
-use cb_instructions::rotate_right_a;
 use math::add_u16_and_i8;
 use math::add_u16_and_i8_affect_flags;
+use math::{rotate_left, rotate_right};
 
 pub struct Instruction {
     pub name: &'static str,
@@ -130,6 +127,7 @@ pub fn get_instruction_set() -> Vec<Instruction> {
         Instruction::new("LD (0xFF00 + n),A", 0xE0, 1, 12, Box::new(load_ff00_plus_n_with_a)),
         Instruction::new("LD A,(0xFF00 + n)", 0xF0, 1, 12, Box::new(load_a_with_ff00_plus_n)),
         Instruction::new("LD (0xFF00 + C),A", 0xE2, 0, 8, Box::new(load_ff00_plus_c_with_a)),
+        Instruction::new("LD A,(0xFF00 + C)", 0xF2, 0, 8, Box::new(load_a_with_ff00_plus_c)),
         Instruction::new("LD (nn),SP", 0x08, 2, 20, Box::new(load_mem_nn_sp)),
 
         Instruction::new("PUSH AF", 0xF5, 0, 16, Box::new(push_af)),
@@ -1116,6 +1114,12 @@ fn load_ff00_plus_c_with_a(gb: &mut GameBoy, _: u8, _: u8) {
     gb.memory.set_byte(0xFF00 + (c as u16), a);
 }
 
+fn load_a_with_ff00_plus_c(gb: &mut GameBoy, _: u8, _: u8) {
+    let c = gb.cpu.get_c();
+    let result = gb.memory.get_byte(0xFF00 + (c as u16));
+    gb.cpu.set_a(result);
+}
+
 fn load_mem_hl_with_a_dec_hl(gb: &mut GameBoy, _: u8, _: u8) {
     gb.memory.set_byte(gb.cpu.hl, gb.cpu.get_a());
     decrement_hl(gb, 0, 0);
@@ -1381,6 +1385,34 @@ fn restart_30(gb: &mut GameBoy, _: u8, _: u8) {
 
 fn restart_38(gb: &mut GameBoy, _: u8, _: u8) {
     restart(gb, 0x38);
+}
+
+fn rotate_left_a_through(gb: &mut GameBoy, _: u8, _: u8) {
+    let a = gb.cpu.get_a();
+    let result = rotate_left(gb, a, true);
+    gb.cpu.set_a(result);
+    gb.cpu.flag.zero = false;
+}
+
+fn rotate_left_a(gb: &mut GameBoy, _: u8, _: u8) {
+    let a = gb.cpu.get_a();
+    let result = rotate_left(gb, a, false);
+    gb.cpu.set_a(result);
+    gb.cpu.flag.zero = false;
+}
+
+fn rotate_right_a_through(gb: &mut GameBoy, _: u8, _: u8) {
+    let a = gb.cpu.get_a();
+    let result = rotate_right(gb, a, true);
+    gb.cpu.set_a(result);
+    gb.cpu.flag.zero = false;
+}
+
+fn rotate_right_a(gb: &mut GameBoy, _: u8, _: u8) {
+    let a = gb.cpu.get_a();
+    let result = rotate_right(gb, a, false);
+    gb.cpu.set_a(result);
+    gb.cpu.flag.zero = false;
 }
 
 fn decimal_adjust_a(gb: &mut GameBoy, _: u8, _: u8) {

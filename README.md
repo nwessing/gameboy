@@ -12,7 +12,6 @@ User must change the code in order to change which rom is loaded as of right now
  - joypad interrupt
  - LCD status interrupt
  - finish regular instructions
- - finish extended instructions
  - sound
  - memory bank controller
  - keybinding configuration

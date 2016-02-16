@@ -12,7 +12,7 @@ pub fn rotate_left(gb: &mut GameBoy, val: u8, through: bool) -> u8 {
     let result = if through {
         (val << 1) | carry
     } else {
-        val << 1
+        val.rotate_left(1)
     };
 
     gb.cpu.flag.zero = result == 0;
@@ -25,12 +25,12 @@ pub fn rotate_right(gb: &mut GameBoy, val: u8, through: bool) -> u8 {
     gb.cpu.flag.half_carry = false;
     let carry = if gb.cpu.flag.carry { 0x80 } else { 0 };
 
-    gb.cpu.flag.carry = val & 0x01 == 0x001;
+    gb.cpu.flag.carry = val & 0x01 == 0x01;
 
     let result = if through {
         (val >> 1) | carry
     } else {
-        val >> 1
+        val.rotate_right(1)
     };
 
     gb.cpu.flag.zero = result == 0;

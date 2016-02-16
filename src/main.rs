@@ -22,7 +22,7 @@ use std::fs;
 use game_boy::GameBoy;
 
 fn main() {
-    let mut game_file = fs::File::open("roms/tetris.gb").unwrap();
+    // let mut game_file = fs::File::open("roms/tetris.gb").unwrap();
     // let mut game_file = fs::File::open("roms/opus5.gb").unwrap();
     // let mut game_file = fs::File::open("roms/cpu_instrs/cpu_instrs.gb").unwrap();
     // let mut game_file = fs::File::open("roms/cpu_instrs/individual/01-special.gb").unwrap();
@@ -35,7 +35,7 @@ fn main() {
     // let mut game_file = fs::File::open("roms/cpu_instrs/individual/08-misc instrs.gb").unwrap();    
     // let mut game_file = fs::File::open("roms/cpu_instrs/individual/09-op r,r.gb").unwrap();    
     // let mut game_file = fs::File::open("roms/cpu_instrs/individual/10-bit ops.gb").unwrap();    
-    // let mut game_file = fs::File::open("roms/cpu_instrs/individual/11-op a,(hl).gb").unwrap();    
+    let mut game_file = fs::File::open("roms/cpu_instrs/individual/11-op a,(hl).gb").unwrap();    
 
     let mut game_buf = Vec::new();
     game_file.read_to_end(&mut game_buf).unwrap();
