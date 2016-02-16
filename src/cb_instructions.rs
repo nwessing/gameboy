@@ -348,15 +348,12 @@ fn swap(gb: &mut GameBoy, value: u8) -> u8 {
     (value << 4) | (value >> 4)
 }
 
-// fn rotate_left(gb: &mut GameBoy, val: u8) -> u8 {
-//     gb.cpu.flag.subtract = false;
-//     gb.cpu.flag.half_carry = false;
-//     gb.cpu.flag.carry = val & 0xA0 > 0;
-
-//     let result = val.rotate_left(1);
-//     gb.cpu.flag.zero = result == 0;
-
-//     result
+// fn rotate_left(reg: Reg8) -> Box<Fn(&mut GameBoy, u8, u8)>{
+//     Box::new(move |gb, _, _| {
+//         let reg_val = get_reg8(gb, reg);
+//         let result = rotate_left(gb, reg_val, true);
+//         set_reg8(gb, reg, result);
+//     });
 // }
 
 pub fn rotate_left_a(gb: &mut GameBoy, _: u8, _: u8) {

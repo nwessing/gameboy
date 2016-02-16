@@ -87,17 +87,17 @@ fn main() {
             Option::Some(x) => x,
         };
 
-        if debug_mode {
-            print!("\nExecuting instruction {} ", instruction.name);
-            if instruction.operand_length == 1 {
-                print!("0x{:02X}", arg1);
-            }
-            if instruction.operand_length == 2 {
-                print!(" 0x{:02X}{:02X}", arg1, arg2);
-            }
-            println!("");
-            pause();
-        }
+        // if debug_mode {
+        //     print!("\nExecuting instruction {} ", instruction.name);
+        //     if instruction.operand_length == 1 {
+        //         print!("0x{:02X}", arg1);
+        //     }
+        //     if instruction.operand_length == 2 {
+        //         print!(" 0x{:02X}{:02X}", arg1, arg2);
+        //     }
+        //     println!("");
+        //     pause();
+        // }
         
         gb.cpu.pc = gb.cpu.pc + (instruction.operand_length as u16) + if use_cb { 2 } else { 1 };
         

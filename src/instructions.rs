@@ -9,6 +9,7 @@ use cb_instructions::rotate_left_a;
 use cb_instructions::rotate_right_a_through;
 use cb_instructions::rotate_right_a;
 use math::add_u16_and_i8;
+use math::add_u16_and_i8_affect_flags;
 
 pub struct Instruction {
     pub name: &'static str,
@@ -33,6 +34,7 @@ impl Instruction {
 pub fn get_instruction_set() -> Vec<Instruction> {
     vec![
         Instruction::new("NOP", 0x00, 0, 4, Box::new(nop)),
+        // Instruction::new("HALT", 0x76, 0, 4, Box::new(halt)),
         Instruction::new("LD A,n", 0x3E, 1, 8, load_x_imm(Reg8::A)),
         Instruction::new("LD B,n", 0x06, 1, 8, load_x_imm(Reg8::B)),
         Instruction::new("LD C,n", 0x0E, 1, 8, load_x_imm(Reg8::C)),
@@ -209,6 +211,7 @@ pub fn get_instruction_set() -> Vec<Instruction> {
         Instruction::new("ADD HL,DE", 0x19, 0, 8, Box::new(add_hl_de)),
         Instruction::new("ADD HL,HL", 0x29, 0, 8, Box::new(add_hl_hl)),
         Instruction::new("ADD HL,SP", 0x39, 0, 8, Box::new(add_hl_sp)),
+        Instruction::new("ADD SP,n", 0xE8, 1, 16, Box::new(add_sp_signed_n)),
 
         Instruction::new("ADC A,A", 0x8F, 0, 4, Box::new(add_a_with_carry)),
         Instruction::new("ADC A,B", 0x88, 0, 4, Box::new(add_b_with_carry)),
@@ -786,6 +789,12 @@ fn add_hl_sp(gb: &mut GameBoy, _: u8, _: u8) {
     gb.cpu.hl = add_word(gb, hl, arg);
 }
 
+fn add_sp_signed_n(gb: &mut GameBoy, arg: u8, _: u8) {
+    let sp = gb.cpu.sp;
+    let result = add_u16_and_i8_affect_flags(gb, sp, arg);
+    gb.cpu.sp = result;
+}
+
 fn decrement_a(gb: &mut GameBoy, _: u8, _: u8) {
     let reg_val = gb.cpu.get_a();
     let result = decrement(gb, reg_val);
@@ -1134,8 +1143,8 @@ fn load_sp_hl(gb: &mut GameBoy, _: u8, _: u8) {
 }
 
 fn load_hl_sp_plus_signed_n(gb: &mut GameBoy, a1: u8, _: u8) {
-    //TODO carry and half_carry flags
-    let result = add_u16_and_i8(gb.cpu.sp, a1);
+    let sp = gb.cpu.sp;
+    let result = add_u16_and_i8_affect_flags(gb, sp, a1);
     gb.cpu.hl = result;
 }
 
