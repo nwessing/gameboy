@@ -517,8 +517,8 @@ fn add_word(gb: &mut GameBoy, value: u16, arg: u16) -> u16 {
 fn subtract(gb: &mut GameBoy, reg_val: u8, value: u8, with_carry: bool) -> u8 {
     let reg_val = reg_val as i16;
     let extra: i16 = if with_carry && gb.cpu.flag.carry { 1 } else { 0 };
-    let value = ((value as i16) + extra) & 0xFF;
-    let mut result = reg_val - value;
+    let value = value as i16;
+    let mut result = reg_val - value - extra;
     if result < 0 {
         result += 256;
         gb.cpu.flag.carry = true;
@@ -526,7 +526,7 @@ fn subtract(gb: &mut GameBoy, reg_val: u8, value: u8, with_carry: bool) -> u8 {
         gb.cpu.flag.carry = false;
     }
 
-    gb.cpu.flag.half_carry = ((value as u8) & 0x0F) > ((reg_val as u8) & 0x0F); 
+    gb.cpu.flag.half_carry = (value & 0x0F) + extra > (reg_val & 0x0F); 
     gb.cpu.flag.zero = result == 0;
     gb.cpu.flag.subtract = true;
     result as u8
