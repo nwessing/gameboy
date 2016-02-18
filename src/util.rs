@@ -71,7 +71,7 @@ pub fn concat_bytes(a1: u8, a2: u8) -> u16 {
 }
 
 pub fn push_word(gb: &mut GameBoy, value: u16) {
-    gb.cpu.sp -= 2;
+    gb.cpu.sp = gb.cpu.sp.wrapping_sub(2);
     gb.memory.set_word(gb.cpu.sp, value);
 }
 

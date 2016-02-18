@@ -31,7 +31,9 @@ impl Instruction {
 pub fn get_instruction_set() -> Vec<Instruction> {
     vec![
         Instruction::new("NOP", 0x00, 0, 4, Box::new(nop)),
-        // Instruction::new("HALT", 0x76, 0, 4, Box::new(halt)),
+        Instruction::new("HALT", 0x76, 0, 4, Box::new(halt)),
+        Instruction::new("STOP", 0x10, 1, 4, Box::new(halt)),
+        
         Instruction::new("LD A,n", 0x3E, 1, 8, load_x_imm(Reg8::A)),
         Instruction::new("LD B,n", 0x06, 1, 8, load_x_imm(Reg8::B)),
         Instruction::new("LD C,n", 0x0E, 1, 8, load_x_imm(Reg8::C)),
@@ -302,6 +304,11 @@ pub fn get_instruction_set() -> Vec<Instruction> {
 
 fn nop(_: &mut GameBoy, _: u8, _: u8) {
 
+}
+
+fn halt(gb: &mut GameBoy, _: u8, _: u8) {
+    gb.cpu.is_halted = true;
+    println!("HALTED");
 }
 
 fn pop_word(gb: &mut GameBoy) -> u16 {

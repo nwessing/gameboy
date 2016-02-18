@@ -4,15 +4,20 @@ use util::concat_bytes;
 
 pub struct Memory {
     mem: Vec<u8>,
-    boot_rom: Vec<u8>
-
+    use_mbc1: bool,
+    boot_rom: Vec<u8>,
+    selected_rom_bank: u8,
+    rom_banks: Vec<Vec<u8>>
 }
 
 impl Memory {
     pub fn new() -> Memory {
         Memory {
             mem: vec![0; 0x10000],
-            boot_rom: vec![0; 0x100]
+            boot_rom: vec![0; 0x100],
+            use_mbc1: false,
+            selected_rom_bank: 1,
+            rom_banks: vec![]
         }
     }
 
@@ -57,14 +62,56 @@ impl Memory {
     }
 
     pub fn load_rom(&mut self, rom_buf: &Vec<u8>) {
-        for i in 0..rom_buf.len() {
+        let mbc_type = rom_buf[0x147];
+        let num_rom_banks: u32 = match rom_buf[0x148] {
+            0 => 2,
+            1 => 4,
+            2 => 8,
+            3 => 16,
+            4 => 32,
+            5 => 64,
+            6 => 128,
+            x => panic!("ROM specified incorrect size at 0x148: {}", x)
+        };
+
+        let ram_size = rom_buf[0x149];
+        match ram_size {
+            0 => println!("No External RAM"),
+            1 => println!("RAM: 1 bank of 2kB"),
+            2 => println!("RAM: 1 bank of 8kB"),
+            3 => println!("RAM: 4 banks of 8kB (32Kb)"),
+            4 => println!("RAM: 16 banks of 8kB (128Kb)"),
+            x => panic!("ROM specified incorrect size for external RAM: {}", x)
+        };
+        
+        self.use_mbc1 = mbc_type >= 1 && mbc_type < 4; 
+        let rom_size = if self.use_mbc1 { 0x4000 } else { 0x8000 };
+        for i in 0..rom_size {
             self.mem[i] = rom_buf[i];
+        }
+
+        println!("Game uses memory banking {}", mbc_type);
+        println!("ROM banks = {}", num_rom_banks);
+        if self.use_mbc1 {
+            for i_bank in 1..num_rom_banks {
+                let start = i_bank * 0x4000;
+                let mut bank = vec![0; 0x4000];
+                for i in start..(start + 0x4000) {
+                    bank[(i - start) as usize] = rom_buf[i as usize];
+                }
+                self.rom_banks.push(bank);
+            }
         }
     }
 
     pub fn get_byte(&self, address: u16) -> u8 {
         if address < 0x100 && self.mem[0xFF50] == 0 {
             return self.boot_rom[address as usize];
+        }
+
+        if self.use_mbc1 && address >= 0x4000 && address < 0x8000 {
+            //ROM banks
+            return self.rom_banks[(self.selected_rom_bank - 1) as usize][(address - 0x4000) as usize];
         }
 
         if address >= 0xE000 && address < 0xFE00 {
@@ -75,10 +122,6 @@ impl Memory {
     }
 
     pub fn set_byte(&mut self, address: u16, b: u8) {
-        if address == 0xFF04 {
-            //Timer divider register
-            self.mem[address as usize] = 0;
-        }
 
         if address == 0xFF40 {
             println!("LCD Control {:08b}", self.mem[address as usize]);
@@ -88,8 +131,35 @@ impl Memory {
             println!("IE {:08b}", b);
         }
 
+        if address < 0x2000 {
+            println!("RAM Enable: {}", b);
+        }
+
+        if address >= 0x2000 && address < 0x4000 {
+            let b = b & 0x1F;
+            self.selected_rom_bank = match b {
+                0x00 => 0x01,
+                0x20 => 0x21,
+                0x40 => 0x41,
+                0x60 => 0x61,
+                x => x
+            };
+            println!("Selected ROM bank {}", self.selected_rom_bank);
+            return;
+        }
+
+        if address >= 0xA000 && address < 0xC000 {
+            println!("Selected RAM bank {}", b);
+        }
+
         if address < 0x8000 {
             //Read only
+            return;
+        }
+
+        if address == 0xFF04 {
+            //Timer divider register
+            self.mem[address as usize] = 0;
             return;
         }
 
@@ -104,9 +174,10 @@ impl Memory {
         }
 
         if address == 0xFF41 {
-            // lower two bits representing LCD mode are read only
-            let read_only_part = self.mem[0xFF41] & 0b11;
-            self.mem[0xFF41 as usize] = (b & 0b1111_1100) | read_only_part;
+            // lower three bits are read only
+            let read_only_part = self.mem[0xFF41] & 0b111;
+            self.mem[0xFF41 as usize] = (b & 0b1111_1000) | read_only_part;
+            return;
         }
 
         if address >= 0xFE00 && address < 0xFEA0 {
@@ -131,7 +202,6 @@ impl Memory {
         }
 
         if address == 0xFF44 {
-            println!("Game changed LY to {}", b);
             self.mem[address as usize] = 0;
             return;
         }

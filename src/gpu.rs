@@ -18,7 +18,13 @@ const OBJECT_PALETTE1_DATA_REG: u16 = 0xFF49;
 // const WINDOW_Y_REG: u16 = 0xFF4A;
 // const WINDOW_X_REG: u16 = 0xFF4B;
 const LCDC_Y_COORD: u16 = 0xFF44;
-const MODE_FLAG_MASK: u8 = 0b1111_1100;
+const LY_COMPARE: u16 = 0xFF45;
+const LCD_STATUS_FLAG_MASK: u8 = 0b1111_1000;
+const LCD_STATUS_MODE2_INT: u8 = 0b0010_0000;
+const LCD_STATUS_MODE1_INT: u8 = 0b0001_0000;
+const LCD_STATUS_MODE0_INT: u8 = 0b0000_1000;
+const LCD_STATUS_COINCIDENCE: u8 = 0b0000_0100;
+
 
 // const VERTICAL_RES: u8 = 144;
 const HORIZONTAL_RES: u8 = 160;
@@ -132,11 +138,12 @@ impl Gpu {
         let mode2 = 80;
         let mode3 = 173;
 
-
         let frame_step = self.ticks % frame;
         let scan_line_clk = frame_step % 456;
         let scan_line = (frame_step / 456) as u8;
         
+        let mut interrupt_flags = gb.memory.get_byte(0xFF0F);
+
         if frame_step >= 65664 {
             mode = MODE1_VBLANK;
         } else {
@@ -150,19 +157,37 @@ impl Gpu {
         }
 
         if prev_mode == MODE3_ACCESSING_VRAM && mode == MODE0_HBLANK {
-            self.draw_scan_line(gb, scan_line);    
+            if status & LCD_STATUS_MODE0_INT == LCD_STATUS_MODE0_INT {
+                interrupt_flags |= 0b10;
+            }
+            self.draw_scan_line(gb, scan_line);  
         }
         
         if prev_mode == MODE0_HBLANK && mode == MODE1_VBLANK {
             self.render_screen();
-            // if 0xFFFF & 0x01 == 0x01 {
-                let int_flags = gb.memory.get_byte(0xFF0F);
-                gb.memory.set_owned_byte(0xFF0F, int_flags | 0x01);
-            // }
+            interrupt_flags |= 0b1;
+            if status & LCD_STATUS_MODE1_INT == LCD_STATUS_MODE1_INT {
+                interrupt_flags |= 0b10;
+            }
         }
 
+        if prev_mode == MODE1_VBLANK && mode == MODE2_ACCESSING_OAM &&
+           status & LCD_STATUS_MODE2_INT == LCD_STATUS_MODE2_INT {
+            interrupt_flags |= 0b10;
+        }
+
+        let ly_compare = gb.memory.get_byte(LY_COMPARE);
+        let mut coincidence_flag = 0;
+        if ly_compare == scan_line {
+            coincidence_flag = LCD_STATUS_COINCIDENCE;
+            if status & LCD_STATUS_COINCIDENCE == LCD_STATUS_COINCIDENCE {
+                interrupt_flags |= 0b10;
+            }
+        }
+
+        gb.memory.set_owned_byte(0xFF0F, interrupt_flags);
         gb.memory.set_owned_byte(LCDC_Y_COORD, scan_line);
-        gb.memory.set_owned_byte(LCDC_STATUS_REG, (status & MODE_FLAG_MASK) | mode);
+        gb.memory.set_owned_byte(LCDC_STATUS_REG, (status & LCD_STATUS_FLAG_MASK) | mode | coincidence_flag);
     }
 
     pub fn draw_scan_line(&mut self, gb: &GameBoy, scan_line: u8) {
@@ -326,7 +351,7 @@ fn get_bg_tile_addr(gb: &GameBoy, tile_index: u8) -> u16 {
         get_sprite_tile_addr(tile_index)
     } else {
         let signed_index = tile_index as i8;
-        ((0x9000i32 + (signed_index as i32)) as u32) as u16
+        (0x9000i32 + ((signed_index as i32) * 16)) as u16
     }
 }
 

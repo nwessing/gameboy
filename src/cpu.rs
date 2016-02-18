@@ -65,7 +65,8 @@ pub struct Cpu {
     pub sp: u16,
     pub pc: u16,
     pub interrupt_enable_master: bool,
-    pub flag: FlagRegister
+    pub flag: FlagRegister,
+    pub is_halted: bool
 }
 
 impl fmt::Display for Cpu {
@@ -85,7 +86,8 @@ impl Cpu {
             sp: 0,
             pc: 0,
             interrupt_enable_master: false,
-            flag: FlagRegister::new()
+            flag: FlagRegister::new(),
+            is_halted: false
         }
     }
 

@@ -11,12 +11,10 @@ const SERIAL: u8 = 0x08;
 const JOYPAD: u8 = 0x10;
 
 pub fn check_interrupts(gb: &mut GameBoy) {
+    let enabled = gb.memory.get_byte(INTERRUPT_ENABLE_REG);
+    let flag = gb.memory.get_byte(INTERRUPT_FLAG_REG);
+    let interrupts = enabled & flag;
     if gb.cpu.interrupt_enable_master {
-        let enabled = gb.memory.get_byte(INTERRUPT_ENABLE_REG);
-        let flag = gb.memory.get_byte(INTERRUPT_FLAG_REG);
-
-        let interrupts = enabled & flag;
-
         if interrupts & V_BLANK == V_BLANK {
             handle_interrupt(gb, flag, V_BLANK);
         } else if interrupts & LCD_STAT == LCD_STAT {
@@ -28,6 +26,10 @@ pub fn check_interrupts(gb: &mut GameBoy) {
         } else if interrupts & JOYPAD == JOYPAD {
             handle_interrupt(gb, flag, JOYPAD);
         }
+    }
+
+    if interrupts != 0 {
+        gb.cpu.is_halted = false;
     }
 }
 

@@ -55,9 +55,9 @@ impl Clock {
 
             let counter = gb.memory.get_byte(TIMER_COUNTER_REG);
             if self.ticks / rate < new_ticks / rate {
-                let result = if counter == 0xFF { 
+                let result = if counter == 0xFF {
                     let int_flags = gb.memory.get_byte(INTERRUPT_FLAG_REG);
-                    gb.memory.set_byte(INTERRUPT_FLAG_REG, int_flags | 0b100);
+                    gb.memory.set_owned_byte(INTERRUPT_FLAG_REG, int_flags | 0b100);
                     gb.memory.get_byte(TIMER_MODULO_REG)
                 } else {
                     counter + 1

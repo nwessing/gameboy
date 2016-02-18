@@ -10,3 +10,4 @@ glutin = "*"
 
 [profile.dev]
 opt-level = 1
+debug = true
