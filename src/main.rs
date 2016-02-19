@@ -53,7 +53,7 @@ fn main() {
     let mut controller = controller::Controller::new();
     let mut debug_mode = false;
 
-    let skip_boot = false;
+    let skip_boot = true;
     if skip_boot {
         gb.memory.set_byte(0xFF50, 1);
         gb.cpu.pc = 0x100;

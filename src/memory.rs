@@ -188,13 +188,14 @@ impl Memory {
             }
         }
 
-        if address >= 0x8000 && address < 0xA000 {
-            // Cannot write VRAM during LCD mode 3 accessing VRAM
-            let lcd_mode = self.mem[0xFF41] & 0b11;
-            if lcd_mode == 3 {
-                return;
-            }
-        }
+        //TODO: investigate if this behavior is correct, it seems to break the boot ROM
+        // if address >= 0x8000 && address < 0xA000 {
+        //     // Cannot write VRAM during LCD mode 3 accessing VRAM
+        //     let lcd_mode = self.mem[0xFF41] & 0b11;
+        //     if lcd_mode == 3 {
+        //         return;
+        //     }
+        // }
         
         if address >= 0xE000 && address < 0xFE00 {
             self.mem[(address - 0x2000) as usize] = b;

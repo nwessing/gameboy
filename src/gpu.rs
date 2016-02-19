@@ -47,11 +47,12 @@ struct Sprite {
     x_pos: i16,
     tile_pattern_addr: u16,
     attributes: u8,
-    index: u8
+    index: u8,
+    height: i16
 }
 
 impl Sprite {
-    fn new(gb: &GameBoy, sprite_index: u8) -> Sprite {
+    fn new(gb: &GameBoy, sprite_index: u8, height: u8) -> Sprite {
         let sprite_addr = SPRITE_DATA_REG + ((sprite_index as u16) * 4);
         let top = (gb.memory.get_byte(sprite_addr) as i16) - 16;
         let left = (gb.memory.get_byte(sprite_addr + 1) as i16) - 8;
@@ -63,7 +64,8 @@ impl Sprite {
             x_pos: left,
             tile_pattern_addr: tile_pattern_addr,
             attributes: attributes, 
-            index: sprite_index
+            index: sprite_index,
+            height: height as i16
         }
     }
 
@@ -84,13 +86,11 @@ impl Sprite {
     }
 
     pub fn bottom(&self) -> i16 {
-        self.y_pos + 8
-        //TODO 16px tall sprites
+        self.y_pos + self.height
     }
 
     pub fn get_tile_pattern(&self, gb: &GameBoy, scan_line: u8) -> u16 {
-        //TODO 16px tall sprites
-        let sprite_y = (((scan_line as i16) - self.top()) % 8) as u16;
+        let sprite_y = (((scan_line as i16) - self.top()) % self.height) as u16;
         let pattern = gb.memory.get_word(self.tile_pattern_addr + (sprite_y * 2));
         pattern
     }
@@ -105,6 +105,10 @@ impl Sprite {
 
     pub fn above_bg(&self) -> bool {
         self.attributes & 0x80 == 0x00
+    }
+
+    pub fn is_mirrored_horizontally(&self) -> bool {
+        self.attributes & 0x20 == 0x20
     }
 }
 
@@ -204,7 +208,6 @@ impl Gpu {
         let base_tile_map_index = (y_bg as u16) / 8 * 32;
 
         let sprites = get_sprites_in_scan_line(gb, scan_line);
-        let mut i_sprite = 0;
         for x in 0..HORIZONTAL_RES {
             let mut x_bg = (x as u16) + scroll_x;
             if x_bg > 255 {
@@ -221,22 +224,24 @@ impl Gpu {
             let bg_color_id = get_palette_color(bg_palette, bg_palette_index as u8);
 
             let mut draw_bg = true;
-            if i_sprite < sprites.len() {
-                let sprite = &sprites[i_sprite];
-                if sprite.left() <= (x as i16) && (sprite.above_bg() || bg_palette_index == 0) {
+            for i in 0..sprites.len() {
+                let sprite = &sprites[i];
+                if sprite.left() <= (x as i16) && sprite.right() > (x as i16) && (sprite.above_bg() || bg_palette_index == 0) {
                     let sprite_pattern = sprite.get_tile_pattern(gb, scan_line);
-                    let sprite_x = (7 - (((x as i16) - sprite.left()) % 8)) as u8;
+                    let sprite_x = if sprite.is_mirrored_horizontally() {
+                        (((x as i16) - sprite.left()) % 8) as u8
+                    } else {
+                        (7 - (((x as i16) - sprite.left()) % 8)) as u8
+                    };
                     let sprite_palette_index = get_palette_index(sprite_pattern, sprite_x);
                     if sprite_palette_index != 0 {
                         let sprite_palette = sprite.get_palette(gb);
                         let sprite_color_id = get_palette_color(sprite_palette, sprite_palette_index);
                         let sprite_color = get_color(sprite_color_id);
                         self.window_buf[scan_line as usize][x as usize] = sprite_color;
-                        draw_bg = false;  
+                        draw_bg = false;
+                        break;
                     }
-                }
-                if sprite.right() - 1 <= (x as i16) {
-                    i_sprite += 1;
                 }
             }
 
@@ -288,9 +293,10 @@ fn handle_input(controller: &mut Controller, state: ElementState, key: Option<Vi
 }
 
 fn get_sprites_in_scan_line(gb: &GameBoy, scan_line: u8) -> Vec<Sprite> {
+    let sprite_size = sprite_size(gb);
     let mut sprites: Vec<Sprite> = vec![];
     for i_sprite in 0..40 {
-        let sprite = Sprite::new(gb, i_sprite);
+        let sprite = Sprite::new(gb, i_sprite, sprite_size);
         if sprite.top() <= (scan_line as i16) && sprite.bottom() > (scan_line as i16) {
             let mut insertion_index = sprites.len();
             for (i, existing_sprite) in sprites.iter().enumerate() {
@@ -331,7 +337,7 @@ fn display_enabled(gb: &GameBoy) -> bool {
 // }
 
 fn bg_tile_map(gb: &GameBoy) -> u8 {
-    gb.memory.get_byte(LCD_CONTROL_REG) >> 3 &0b1
+    gb.memory.get_byte(LCD_CONTROL_REG) >> 3 & 0b1
 }
 
 fn bg_palette(gb: &GameBoy) -> u8 {
@@ -339,7 +345,15 @@ fn bg_palette(gb: &GameBoy) -> u8 {
 }
 
 fn tile_data(gb: &GameBoy) -> u8 {
-    gb.memory.get_byte(0xFF40) >> 4 &0b1
+    gb.memory.get_byte(0xFF40) >> 4 & 0b1
+}
+
+fn sprite_size(gb: &GameBoy) -> u8 {
+    if gb.memory.get_byte(0xFF40) & 0b100 == 0b100 {
+        16
+    } else {
+        8
+    }
 }
 
 fn get_sprite_tile_addr(tile_index: u8) -> u16 {

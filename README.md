@@ -5,8 +5,9 @@ User must change the code in order to change which rom is loaded as of right now
 ### Controls
 
 ### To Do
- - horizontal and vertical flipping for sprites
+ - vertical flipping for sprites
  - 16 pixel tall sprites
+ - if current sprite in scan line has transparent pixel, need to draw sprite behind it
  - render the window
  - joypad interrupt
  - LCD status interrupt
