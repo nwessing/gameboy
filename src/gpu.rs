@@ -144,6 +144,7 @@ impl Gpu {
 
         let frame_step = self.ticks % frame;
         let scan_line_clk = frame_step % 456;
+        let prev_scan_line = gb.memory.get_byte(LCDC_Y_COORD);
         let scan_line = (frame_step / 456) as u8;
         
         let mut interrupt_flags = gb.memory.get_byte(0xFF0F);
@@ -181,11 +182,15 @@ impl Gpu {
         }
 
         let ly_compare = gb.memory.get_byte(LY_COMPARE);
-        let mut coincidence_flag = 0;
-        if ly_compare == scan_line {
-            coincidence_flag = LCD_STATUS_COINCIDENCE;
-            if status & LCD_STATUS_COINCIDENCE == LCD_STATUS_COINCIDENCE {
-                interrupt_flags |= 0b10;
+        let mut coincidence_flag = status & LCD_STATUS_COINCIDENCE;
+        if prev_scan_line != scan_line {
+            if ly_compare == scan_line {
+                coincidence_flag = LCD_STATUS_COINCIDENCE;
+                if status & LCD_STATUS_COINCIDENCE == LCD_STATUS_COINCIDENCE {
+                    interrupt_flags |= 0b10;
+                }
+            } else {
+                coincidence_flag = 0;
             }
         }
 
