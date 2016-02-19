@@ -6,6 +6,7 @@ User must change the code in order to change which rom is loaded as of right now
 
 ### To Do
  - vertical flipping for sprites
+ - Fix sprite transparency issues
  - render the window
  - joypad interrupt
  - STOP instruction
