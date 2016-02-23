@@ -44,15 +44,15 @@ impl Controller {
     }
 
     pub fn select_changed(&mut self, pressed: bool) {
-        self.button_states = set_bit(self.button_states, 0b0100, pressed);
+        self.button_states = set_bit(self.button_states, 0b0100, !pressed);
     }
 
     pub fn b_changed(&mut self, pressed: bool) {
-        self.button_states = set_bit(self.button_states, 0b0010, pressed);
+        self.button_states = set_bit(self.button_states, 0b0010, !pressed);
     }
 
     pub fn a_changed(&mut self, pressed: bool) {
-        self.button_states = set_bit(self.button_states, 0b0001, pressed);
+        self.button_states = set_bit(self.button_states, 0b0001, !pressed);
     }
 
     pub fn update_joypad_register(&self, gb: &mut GameBoy) {

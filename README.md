@@ -3,6 +3,17 @@
 User must change the code in order to change which rom is loaded as of right now.
 
 ### Controls
+|Emulator|Gameboy|
+|---|---|
+|W|Up|
+|A|Left|
+|S|Down|
+|D|Right|
+|K|A|
+|M|B|
+|H|Select|
+|J|Start|
+
 
 ### To Do
  - vertical flipping for sprites
