@@ -1,6 +1,9 @@
 # Game Boy Emulator in Rust
 
-User must change the code in order to change which rom is loaded as of right now.
+To load a ROM in the emulator specify the path to the ROM file as an argument. The following is an example command when running the emulator via cargo:
+```
+cargo run -- roms/tetris.gb
+```
 
 ### Controls
 |Emulator|Gameboy|
