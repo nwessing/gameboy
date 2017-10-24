@@ -15,8 +15,10 @@ const SCROLL_X_REG: u16 = 0xFF43;
 const SPRITE_DATA_REG: u16 = 0xFE00;
 const OBJECT_PALETTE0_DATA_REG: u16 = 0xFF48;
 const OBJECT_PALETTE1_DATA_REG: u16 = 0xFF49;
-// const WINDOW_Y_REG: u16 = 0xFF4A;
-// const WINDOW_X_REG: u16 = 0xFF4B;
+
+const WINDOW_Y_REG: u16 = 0xFF4A;
+const WINDOW_X_REG: u16 = 0xFF4B;
+
 const LCDC_Y_COORD: u16 = 0xFF44;
 const LY_COMPARE: u16 = 0xFF45;
 const LCD_STATUS_FLAG_MASK: u8 = 0b1111_1000;
@@ -91,7 +93,12 @@ impl Sprite {
     }
 
     pub fn get_tile_pattern(&self, gb: &GameBoy, scan_line: u8) -> u16 {
-        let sprite_y = (((scan_line as i16) - self.top()) % self.height) as u16;
+        let sprite_y = if self.is_mirrored_vertically() {
+            (((self.height - 1) - (((scan_line as i16) - self.top())) % self.height)) as u16
+        } else {
+            (((scan_line as i16) - self.top()) % self.height) as u16
+        };
+
         let pattern = gb.memory.get_word(self.tile_pattern_addr + (sprite_y * 2));
         pattern
     }
@@ -110,6 +117,10 @@ impl Sprite {
 
     pub fn is_mirrored_horizontally(&self) -> bool {
         self.attributes & 0x20 == 0x20
+    }
+
+    pub fn is_mirrored_vertically(&self) -> bool {
+        self.attributes & 0x40 == 0x40
     }
 }
 
@@ -205,7 +216,8 @@ impl Gpu {
     }
 
     pub fn draw_scan_line(&mut self, gb: &GameBoy, scan_line: u8) {
-        let tile_map_addr = if bg_tile_map(gb) == 1 { 0x9C00 } else { 0x9800 };
+        let window_y = (scan_line as i16) - (window_y_offset(gb) as i16);
+
         let bg_palette = bg_palette(gb);
 
         let scroll_y = gb.memory.get_byte(SCROLL_Y_REG) as u16;
@@ -215,29 +227,28 @@ impl Gpu {
         if y_bg > 255 {
             y_bg -= 256;
         }
-        let base_tile_map_index = (y_bg as u16) / 8 * 32;
-
         let sprites = get_sprites_in_scan_line(gb, scan_line);
         for x in 0..HORIZONTAL_RES {
-            let mut x_bg = (x as u16) + scroll_x;
-            if x_bg > 255 {
-                x_bg -= 256;
-            }
-            let x_bg = x_bg;
-
-            let (bg_color_id, bg_palette_index) = if bg_enabled(gb) {
-                let tile_index = base_tile_map_index + ((x_bg / 8) as u16);
-                let tile_data_index = gb.memory.get_byte(tile_map_addr + tile_index);
-                let base_bg_tile_pattern_addr = get_bg_tile_addr(gb, tile_data_index);
-                let bg_pattern_y = (y_bg % 8) as u16;
-                let bg_tile_pattern = gb.memory.get_word(base_bg_tile_pattern_addr + (bg_pattern_y * 2));
-                let bg_palette_index = get_palette_index(bg_tile_pattern, (7 - (x_bg % 8)) as u8);
-                (get_palette_color(bg_palette, bg_palette_index as u8), bg_palette_index)
-            } else {
-                (0, 0) //white
-            };
 
             let mut draw_bg = true;
+            let window_x = (x as i16) - (window_x_offset(gb) as i16) + 7;
+            if window_enabled(gb) && window_y >= 0 && window_x >= 0 {
+                let window_palette_index = get_tile_map_palette_index(gb, window_tile_map(gb), window_x as u16, window_y as u16);
+                self.window_buf[scan_line as usize][x as usize] = get_color(get_palette_color(bg_palette, window_palette_index));
+                draw_bg = false;
+            }
+
+            let bg_palette_index = if bg_enabled(gb) {
+                let mut x_bg = (x as u16) + scroll_x;
+                if x_bg > 255 {
+                    x_bg -= 256;
+                }
+                get_tile_map_palette_index(gb, bg_tile_map(gb), x_bg, y_bg)
+            } else {
+                0 //white
+            };
+
+            // let mut draw_bg = true;
             for i in 0..sprites.len() {
                 let sprite = &sprites[i];
                 if sprite.left() <= (x as i16) && sprite.right() > (x as i16) && (sprite.above_bg() || bg_palette_index == 0) {
@@ -259,8 +270,10 @@ impl Gpu {
                 }
             }
 
+
+
             if draw_bg {
-                let bg_color = get_color(bg_color_id);
+                let bg_color = get_color(get_palette_color(bg_palette, bg_palette_index));
                 self.window_buf[scan_line as usize][x as usize] = bg_color;    
             }
             
@@ -331,6 +344,19 @@ fn get_palette_index(pattern: u16, x: u8) -> u8 {
     (((pattern >> x) & 0b1) | ((pattern >> (x+7)) & 0b10)) as u8
 }
 
+fn get_tile_map_palette_index(gb: &GameBoy, map_id: bool, x: u16, y: u16) -> u8 {
+    let tile_map_addr = if map_id { 0x9C00 } else { 0x9800 };
+
+    let tile_index = ((y as u16) / 8 * 32) + ((x / 8) as u16);
+    let tile_pattern_index = gb.memory.get_byte(tile_map_addr + tile_index);
+    let base_tile_pattern_addr = get_bg_tile_addr(gb, tile_pattern_index);
+
+    let pattern_y = (y % 8) as u16;
+    let tile_pattern = gb.memory.get_word(base_tile_pattern_addr + (pattern_y * 2));
+
+    get_palette_index(tile_pattern, (7 - (x % 8)) as u8)
+}
+
 fn new_window_buf() -> Vec<Vec<(u8, u8, u8)>> {
     let mut window_buf: Vec<Vec<(u8, u8, u8)>> = Vec::new();
     for iy in 0..144 {
@@ -353,8 +379,24 @@ fn bg_enabled(gb: &GameBoy) -> bool {
     gb.memory.get_byte(LCD_CONTROL_REG) & 0b1 == 0b1
 }
 
-fn bg_tile_map(gb: &GameBoy) -> u8 {
-    gb.memory.get_byte(LCD_CONTROL_REG) >> 3 & 0b1
+fn bg_tile_map(gb: &GameBoy) -> bool {
+    gb.memory.get_byte(LCD_CONTROL_REG) >> 3 == 0b1
+}
+
+fn window_enabled(gb: &GameBoy) -> bool {
+    gb.memory.get_byte(LCD_CONTROL_REG) & 0x20 == 0x20
+}
+
+fn window_x_offset(gb: &GameBoy) -> u8 {
+    gb.memory.get_byte(WINDOW_X_REG)
+}
+
+fn window_y_offset(gb: &GameBoy) -> u8 {
+    gb.memory.get_byte(WINDOW_Y_REG)
+}
+
+fn window_tile_map(gb: &GameBoy) -> bool {
+    gb.memory.get_byte(LCD_CONTROL_REG) & 0x40 == 0x40
 }
 
 fn bg_palette(gb: &GameBoy) -> u8 {

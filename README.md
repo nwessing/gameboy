@@ -19,9 +19,8 @@ cargo run -- roms/tetris.gb
 
 
 ### To Do
- - vertical flipping for sprites
  - Fix sprite transparency issues
- - render the window
+ - window rendering - pick up where left off when window is disabled and reenabled
  - joypad interrupt
  - STOP instruction
  - MBC 1 upper ROM banks
