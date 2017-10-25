@@ -18,6 +18,8 @@ use std::io;
 use std::io::prelude::*;
 use std::fs;
 use std::env;
+use std::path::Path;
+use fs::File;
 use game_boy::GameBoy;
 use controller::Controller;
 use cpu::InstructionSet;
@@ -34,25 +36,17 @@ fn main() {
         panic!("Please supply a path to a GameBoy ROM file");
     }
 
-    let game_file_path = args[1].to_string();
-    let game_buf = load_rom(&game_file_path);
-
-    let mut boot_buf = Vec::new();
-    match fs::File::open("roms/boot_rom.gb") {
-        Ok(mut boot_file) => { boot_file.read_to_end(&mut boot_buf).unwrap(); },
-        Err(_) => {}
-    }
+    let game_file_path = Path::new(&args[1]);
 
     let mut gb = GameBoy::new();
+    let skip_boot = true;
     gb.power_on();
-    let skip_boot = if boot_buf.len() > 0 {
-        gb.load_boot_rom(&boot_buf);
-        false
-    } else {
-        true
-    };
 
-    gb.load_rom(&game_buf);
+    if !skip_boot {
+        load_boot_rom(&mut gb);
+    }
+    load_rom(&mut gb, game_file_path);
+    load_external_ram(&mut gb, &game_file_path);
 
     let instruction_set = InstructionSet::new();
     let mut clock = clock::Clock::new();
@@ -102,6 +96,7 @@ fn main() {
             break;
         }
     }
+    save_external_ram(&gb, &game_file_path);
 }
 
 fn execute_next_instruction(mut gb: &mut GameBoy, instruction_set: &InstructionSet) -> u8 {
@@ -136,6 +131,53 @@ fn execute_next_instruction(mut gb: &mut GameBoy, instruction_set: &InstructionS
     instruction.cycles
 }
 
+fn load_rom(gb: &mut GameBoy, game_file_path: &Path) {
+    let mut game_file = match File::open(game_file_path) {
+        Ok(x) => x,
+        Err(x) => panic!("{}", x)
+    };
+
+    let mut game_buf = Vec::new();
+    game_file.read_to_end(&mut game_buf).unwrap();
+    gb.load_rom(&game_buf);
+}
+
+fn load_boot_rom(gb: &mut GameBoy) {
+    let mut boot_file = fs::File::open("roms/boot_rom.gb").unwrap();
+    let mut boot_buf = Vec::new();
+    boot_file.read_to_end(&mut boot_buf).unwrap();
+    gb.load_boot_rom(&boot_buf);
+}
+
+fn load_external_ram(gb: &mut GameBoy, game_file_path: &Path) {
+    if gb.memory.use_battery() {
+        let game_save_path = game_file_path.with_extension("gbsave");
+        match File::open(game_save_path) {
+            Ok(mut game_save_file) => {
+                let mut save_buf = Vec::new();
+                game_save_file.read_to_end(&mut save_buf).unwrap();
+                gb.load_save_data(&save_buf);
+            },
+            Err(_) => {}
+        };
+    }
+}
+
+fn save_external_ram(gb: &GameBoy, game_file_path: &Path) {
+    if gb.memory.use_battery() {
+        let game_save_path = game_file_path.with_extension("gbsave");
+        let mut save_file = match File::create(game_save_path) {
+            Ok(x) => x,
+            Err(x) => panic!("{}", x)
+        };
+
+        match save_file.write_all(gb.memory.get_external_ram_banks().as_slice()) {
+            Ok(x) => x,
+            Err(x) => panic!("{}", x)
+        };
+    }
+}
+
 fn pause() {
     let mut guess = String::new();
     println!("Paused");
@@ -144,16 +186,7 @@ fn pause() {
         .expect("Failed to read line");
 }
 
-fn load_rom(game_file_path: &String) -> Vec<u8> {
-    let mut game_file = match fs::File::open(game_file_path) {
-        Ok(x) => x,
-        Err(x) => panic!("{}", x)
-    };
 
-    let mut game_buf = Vec::new();
-    game_file.read_to_end(&mut game_buf).unwrap();
-    game_buf
-}
 
 fn render_frame(canvas: &mut WindowCanvas, frame_buffer: &[u8; gpu::BUFFER_SIZE]) {
     let texture_creator = canvas.texture_creator();

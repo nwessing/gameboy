@@ -29,6 +29,10 @@ impl GameBoy {
         self.memory.load_rom(rom_buf);
     }
 
+    pub fn load_save_data(&mut self, save_buf: &Vec<u8>) {
+        self.memory.load_external_ram(save_buf);
+    }
+
     pub fn request_exit(&mut self) {
         self.exit_requested = true;
     }

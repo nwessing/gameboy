@@ -5,9 +5,12 @@ use util::concat_bytes;
 pub struct Memory {
     mem: Vec<u8>,
     use_mbc1: bool,
+    use_battery: bool,
     boot_rom: Vec<u8>,
     selected_rom_bank: u8,
-    rom_banks: Vec<Vec<u8>>
+    selected_ram_bank: u8,
+    rom_banks: Vec<Vec<u8>>,
+    ram_banks: Vec<Vec<u8>>,
 }
 
 impl Memory {
@@ -16,8 +19,11 @@ impl Memory {
             mem: vec![0; 0x10000],
             boot_rom: vec![0; 0x100],
             use_mbc1: false,
+            use_battery: false,
             selected_rom_bank: 1,
-            rom_banks: vec![]
+            selected_ram_bank: 0,
+            rom_banks: vec![],
+            ram_banks: vec![]
         }
     }
 
@@ -75,16 +81,27 @@ impl Memory {
         };
 
         let ram_size = rom_buf[0x149];
-        match ram_size {
-            0 => println!("No External RAM"),
-            1 => println!("RAM: 1 bank of 2kB"),
-            2 => println!("RAM: 1 bank of 8kB"),
-            3 => println!("RAM: 4 banks of 8kB (32Kb)"),
-            4 => println!("RAM: 16 banks of 8kB (128Kb)"),
+        let num_ram_banks = match ram_size {
+            0 => 0,
+            1 => 1, //2KB instead of 8KB
+            2 => 1,
+            3 => 4,
+            4 => 16,
             x => panic!("ROM specified incorrect size for external RAM: {}", x)
         };
 
-        self.use_mbc1 = mbc_type >= 1 && mbc_type < 4;
+        self.use_mbc1 = mbc_type >= 1 && mbc_type < 4; 
+        self.use_battery = match mbc_type {
+            0x03 => true,
+            0x06 => true,
+            0x09 => true,
+            0x0D => true,
+            0x13 => true,
+            0x1B => true,
+            0x1E => true,
+            _ => false
+        };
+
         let rom_size = if self.use_mbc1 { 0x4000 } else { 0x8000 };
         for i in 0..rom_size {
             self.mem[i] = rom_buf[i];
@@ -92,6 +109,8 @@ impl Memory {
 
         println!("Game uses memory banking {}", mbc_type);
         println!("ROM banks = {}", num_rom_banks);
+        println!("RAM banks = {}", num_ram_banks);
+
         if self.use_mbc1 {
             for i_bank in 1..num_rom_banks {
                 let start = i_bank * 0x4000;
@@ -101,7 +120,38 @@ impl Memory {
                 }
                 self.rom_banks.push(bank);
             }
+
+            for _i_bank in 0..num_ram_banks {
+                self.ram_banks.push(vec![0; if ram_size == 1 { 0x800 } else { 0x2000 }]);
+            }
         }
+    }
+
+    pub fn load_external_ram(&mut self, save_buf: &Vec<u8>) {
+        println!("Loading external RAM {0}", save_buf.len());
+        let num_ram_banks = self.ram_banks.len();
+        for i_bank in 0..num_ram_banks {
+            let bank = &mut self.ram_banks[i_bank];
+            for i in 0..bank.len() {
+                bank[i] = save_buf[(i_bank * bank.len()) + i];
+            }
+        }
+    }
+
+    pub fn use_battery(&self) -> bool {
+        self.use_battery
+    }
+
+    pub fn get_external_ram_banks(&self) -> Vec<u8> {
+        let num_ram_banks = self.ram_banks.len();
+        let mut result = vec![0; num_ram_banks * self.ram_banks[0].len()];
+        for i_bank in 0..num_ram_banks {
+            let bank = &self.ram_banks[i_bank];
+            for i in 0..bank.len() {
+                result[(i_bank * bank.len()) + i] = bank[i];
+            }
+        }
+        result
     }
 
     pub fn get_byte(&self, address: u16) -> u8 {
@@ -114,15 +164,21 @@ impl Memory {
             return self.rom_banks[(self.selected_rom_bank - 1) as usize][(address - 0x4000) as usize];
         }
 
+        if address >= 0xA000 && address < 0xC000 {
+            //RAM banks
+            return self.ram_banks[self.selected_ram_bank as usize][(address - 0xA000) as usize];
+        }
+
         if address >= 0xE000 && address < 0xFE00 {
             return self.mem[(address - 0x2000) as usize];
         }
+
+
 
         self.mem[address as usize]
     }
 
     pub fn set_byte(&mut self, address: u16, b: u8) {
-
         // if address == 0xFF40 {
         //     println!("LCD Control {:08b}", self.mem[address as usize]);
         // }
@@ -156,8 +212,22 @@ impl Memory {
         //     println!("Selected RAM bank {}", b);
         // }
 
+        if address >= 0x6000 && address < 0x8000 {
+            println!("Setting memory mode to {}", b & 1);
+        }
+
+        // if address >= 0xA000 && address < 0xC000 {
+        //     println!("Selected RAM bank {}", b);
+        // }
+
         if address < 0x8000 {
             //Read only
+            return;
+        }
+
+        if address >= 0xA000 && address < 0xC000 {
+            //RAM banks
+            self.ram_banks[self.selected_ram_bank as usize][(address - 0xA000) as usize] = b;
             return;
         }
 

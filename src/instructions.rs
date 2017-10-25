@@ -308,7 +308,7 @@ fn nop(_: &mut GameBoy, _: u8, _: u8) {
 
 fn halt(gb: &mut GameBoy, _: u8, _: u8) {
     gb.cpu.is_halted = true;
-    println!("HALTED");
+    // println!("HALTED");
 }
 
 fn stop(gb: &mut GameBoy, a1: u8, _: u8) {
