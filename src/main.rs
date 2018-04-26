@@ -11,9 +11,7 @@ mod interrupts;
 mod controller;
 mod tests;
 
-#[macro_use]
-extern crate glium;
-extern crate glutin;
+extern crate sdl2;
 extern crate time;
 
 use std::io;
@@ -37,15 +35,19 @@ fn main() {
     let mut game_buf = Vec::new();
     game_file.read_to_end(&mut game_buf).unwrap();
 
-    let mut boot_file = fs::File::open("roms/boot_rom.gb").unwrap();
     let mut boot_buf = Vec::new();
-    boot_file.read_to_end(&mut boot_buf).unwrap();
+    match fs::File::open("roms/boot_rom.gb") {
+        Ok(mut boot_file) => { boot_file.read_to_end(&mut boot_buf).unwrap(); },
+        Err(_) => {}
+    }
 
     let mut gb = GameBoy::new();
     let instruction_set = InstructionSet::new();
 
     gb.power_on();
-    gb.load_boot_rom(&boot_buf);
+    if boot_buf.len() > 0 {
+        gb.load_boot_rom(&boot_buf);
+    }
     gb.load_rom(&game_buf);
 
     let mut clock = clock::Clock::new();
@@ -100,13 +102,13 @@ fn execute_next_instruction(mut gb: &mut GameBoy, instruction_set: &InstructionS
     };
 
     let instruction = match instruction {
-        Option::None => { 
-            pause(); 
-            if use_cb { panic!("CB{:02X} instruction not implemented\n{}", opcode, gb.cpu) } else { panic!("{:02X} instruction not implemented\n{}", opcode, gb.cpu) } 
+        Option::None => {
+            pause();
+            if use_cb { panic!("CB{:02X} instruction not implemented\n{}", opcode, gb.cpu) } else { panic!("{:02X} instruction not implemented\n{}", opcode, gb.cpu) }
         },
         Option::Some(x) => x,
     };
-    
+
     gb.cpu.pc = gb.cpu.pc + (instruction.operand_length as u16) + if use_cb { 2 } else { 1 };
     (instruction.exec)(&mut gb, arg1, arg2);
     instruction.cycles

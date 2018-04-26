@@ -1,9 +1,10 @@
-use glium;
-use glium::backend::glutin_backend::GlutinFacade;
-use glium::Surface;
-use glutin::Event;
-use glutin::ElementState;
-use glutin::VirtualKeyCode;
+use sdl2;
+use sdl2::render::WindowCanvas;
+use sdl2::event::Event;
+use sdl2::EventPump;
+use sdl2::keyboard::Keycode;
+use sdl2::pixels::PixelFormatEnum;
+
 use game_boy::GameBoy;
 use controller::Controller;
 
@@ -28,9 +29,10 @@ const LCD_STATUS_MODE1_INT: u8 = 0b0001_0000;
 const LCD_STATUS_MODE0_INT: u8 = 0b0000_1000;
 const LCD_STATUS_COINCIDENCE: u8 = 0b0000_0100;
 
-
-// const VERTICAL_RES: u8 = 144;
-const HORIZONTAL_RES: u8 = 160;
+const VERTICAL_RES: u32 = 144;
+const CHANNELS: u32 = 3;
+const HORIZONTAL_RES: u32 = 160;
+const BUFFER_SIZE: usize = VERTICAL_RES as usize * HORIZONTAL_RES as usize * CHANNELS as usize;
 
 const MODE0_HBLANK: u8 = 0;
 const MODE1_VBLANK: u8 = 1;
@@ -39,8 +41,9 @@ const MODE3_ACCESSING_VRAM: u8 = 3;
 
 
 pub struct Gpu {
-    window: GlutinFacade,
-    window_buf: Vec<Vec<(u8, u8, u8)>>,
+    canvas: WindowCanvas,
+    event_pump: EventPump,
+    window_buf: [u8; BUFFER_SIZE],
     frame_step: u32,
 }
 
@@ -66,7 +69,7 @@ impl Sprite {
             y_pos: top,
             x_pos: left,
             tile_pattern_addr: tile_pattern_addr,
-            attributes: attributes, 
+            attributes: attributes,
             index: sprite_index,
             height: height as i16
         }
@@ -126,10 +129,25 @@ impl Sprite {
 
 impl Gpu {
     pub fn new() -> Gpu {
-        let window = create_window();   
-        let window_buf = new_window_buf();
+        let sdl_context = sdl2::init().unwrap();
+        let video_subsystem = sdl_context.video().unwrap();
+
+        let window = video_subsystem.window("Gameboy Emulator", 800, 600)
+            .position_centered()
+            .build()
+            .unwrap();
+
+        let canvas = window.into_canvas()
+            .build()
+            .unwrap();
+
+        let event_pump = sdl_context.event_pump().unwrap();
+
+        let window_buf = [0; BUFFER_SIZE];
+
         Gpu {
-            window: window,
+            canvas: canvas,
+            event_pump: event_pump,
             window_buf: window_buf,
             frame_step: 0
         }
@@ -137,8 +155,8 @@ impl Gpu {
 
     pub fn update(&mut self, gb: &mut GameBoy, ticks: u8) {
         let status = gb.memory.get_byte(LCDC_STATUS_REG);
-        let prev_mode = status & 0b0000_0011; 
-        
+        let prev_mode = status & 0b0000_0011;
+
         if !display_enabled(gb) {
             if prev_mode != MODE1_VBLANK {
                 // println!("LCD turned off outside of VBLANK, this should not happen.");
@@ -146,7 +164,7 @@ impl Gpu {
             gb.memory.set_owned_byte(LCDC_Y_COORD, 0);
             return;
         }
-        
+
         let frame = 70224;
         let mode0 = 203;
         let mode2 = 80;
@@ -181,7 +199,7 @@ impl Gpu {
             if status & LCD_STATUS_MODE0_INT == LCD_STATUS_MODE0_INT {
                 interrupt_flags |= 0b10;
             }
-            self.draw_scan_line(gb, scan_line);  
+            self.draw_scan_line(gb, scan_line);
         }
 
         let mut coincidence_flag = status & LCD_STATUS_COINCIDENCE;
@@ -227,14 +245,19 @@ impl Gpu {
         if y_bg > 255 {
             y_bg -= 256;
         }
+
         let sprites = get_sprites_in_scan_line(gb, scan_line);
         for x in 0..HORIZONTAL_RES {
+            let index_buffer = ((scan_line as usize * HORIZONTAL_RES as usize) + x as usize ) * CHANNELS as usize;
 
             let mut draw_bg = true;
             let window_x = (x as i16) - (window_x_offset(gb) as i16) + 7;
             if window_enabled(gb) && window_y >= 0 && window_x >= 0 {
                 let window_palette_index = get_tile_map_palette_index(gb, window_tile_map(gb), window_x as u16, window_y as u16);
-                self.window_buf[scan_line as usize][x as usize] = get_color(get_palette_color(bg_palette, window_palette_index));
+                let color = get_color(get_palette_color(bg_palette, window_palette_index));
+                self.window_buf[index_buffer] = color.0;
+                self.window_buf[index_buffer + 1] = color.1;
+                self.window_buf[index_buffer + 2] = color.2;
                 draw_bg = false;
             }
 
@@ -263,58 +286,63 @@ impl Gpu {
                         let sprite_palette = sprite.get_palette(gb);
                         let sprite_color_id = get_palette_color(sprite_palette, sprite_palette_index);
                         let sprite_color = get_color(sprite_color_id);
-                        self.window_buf[scan_line as usize][x as usize] = sprite_color;
+                        self.window_buf[index_buffer] = sprite_color.0;
+                        self.window_buf[index_buffer + 1] = sprite_color.1;
+                        self.window_buf[index_buffer + 2] = sprite_color.2;
                         draw_bg = false;
                         break;
                     }
                 }
             }
 
-
-
             if draw_bg {
                 let bg_color = get_color(get_palette_color(bg_palette, bg_palette_index));
-                self.window_buf[scan_line as usize][x as usize] = bg_color;    
+                self.window_buf[index_buffer] = bg_color.0;
+                self.window_buf[index_buffer + 1] = bg_color.1;
+                self.window_buf[index_buffer + 2] = bg_color.2;
             }
-            
         }
     }
 
     pub fn render_screen(&mut self) {
-        let target = self.window.draw();
-        let mut reversed_buf = self.window_buf.clone();
-        reversed_buf.reverse();
-        let texture = glium::Texture2d::new(&self.window, reversed_buf).unwrap();
-        texture.as_surface().fill(&target, glium::uniforms::MagnifySamplerFilter::Nearest);
-        target.finish().unwrap();
+        let texture_creator = self.canvas.texture_creator();
+        let mut texture = texture_creator.create_texture_streaming(PixelFormatEnum::RGB24, 160, 144).unwrap();
+        texture.with_lock(None, |buffer: &mut [u8], _: usize| {
+            for i in 0..self.window_buf.len() {
+                buffer[i] = self.window_buf[i];
+            }
+        }).unwrap();
+        self.canvas.copy(&texture, None, None).unwrap();
+        self.canvas.present();
     }
 
-    pub fn check_input(&self, gb: &mut GameBoy, controller: &mut Controller) {
-        for event in self.window.poll_events() {
+    pub fn check_input(&mut self, gb: &mut GameBoy, controller: &mut Controller) {
+        for event in self.event_pump.poll_iter() {
             match event {
-                Event::KeyboardInput(state, _, v_key_code) => handle_input(controller, state, v_key_code),
-                Event::Closed => gb.request_exit(),
+                Event::Quit {..} => gb.request_exit(),
+                Event::KeyDown { keycode, .. } => handle_input(controller, true, keycode),
+                Event::KeyUp { keycode, .. } => handle_input(controller, false, keycode),
                 _ => ()
             }
         }
     }
 }
 
-fn handle_input(controller: &mut Controller, state: ElementState, key: Option<VirtualKeyCode>) {
-    if key.is_none() {
-        return;
-    }
+fn handle_input(controller: &mut Controller, pressed: bool, key: Option<Keycode>) {
+    let keycode = match key {
+        Some(keycode) => keycode,
+        None => return
+    };
 
-    let pressed = state == ElementState::Pressed;
-    match key.unwrap() {
-        VirtualKeyCode::W => controller.up_changed(pressed),
-        VirtualKeyCode::A => controller.left_changed(pressed),
-        VirtualKeyCode::S => controller.down_changed(pressed),
-        VirtualKeyCode::D => controller.right_changed(pressed),
-        VirtualKeyCode::M => controller.b_changed(pressed),
-        VirtualKeyCode::K => controller.a_changed(pressed),
-        VirtualKeyCode::J => controller.start_changed(pressed),
-        VirtualKeyCode::H => controller.select_changed(pressed),
+    match keycode {
+        Keycode::W => controller.up_changed(pressed),
+        Keycode::A => controller.left_changed(pressed),
+        Keycode::S => controller.down_changed(pressed),
+        Keycode::D => controller.right_changed(pressed),
+        Keycode::M => controller.b_changed(pressed),
+        Keycode::K => controller.a_changed(pressed),
+        Keycode::J => controller.start_changed(pressed),
+        Keycode::H => controller.select_changed(pressed),
         _ => ()
     }
 }
@@ -355,17 +383,6 @@ fn get_tile_map_palette_index(gb: &GameBoy, map_id: bool, x: u16, y: u16) -> u8 
     let tile_pattern = gb.memory.get_word(base_tile_pattern_addr + (pattern_y * 2));
 
     get_palette_index(tile_pattern, (7 - (x % 8)) as u8)
-}
-
-fn new_window_buf() -> Vec<Vec<(u8, u8, u8)>> {
-    let mut window_buf: Vec<Vec<(u8, u8, u8)>> = Vec::new();
-    for iy in 0..144 {
-        window_buf.push(Vec::<(u8, u8, u8)>::new());
-        for _ in 0..160 {
-            window_buf[iy as usize].push((255u8, 0u8, 0u8));
-        } 
-    }
-    window_buf
 }
 
 fn display_enabled(gb: &GameBoy) -> bool {
@@ -434,7 +451,7 @@ fn get_color(color_id: u8) -> (u8, u8, u8) {
         2 => (96u8, 96u8, 96u8),
         1 => (192u8, 192u8, 192u8),
         0 => (255u8, 255u8, 255u8),
-        _ => (255u8, 0u8, 0u8) //Having Red on the screen should indicate something went wrong.                            
+        _ => (255u8, 0u8, 0u8) //Having Red on the screen should indicate something went wrong.
     }
 }
 
@@ -443,14 +460,5 @@ fn get_palette_color(palette: u8, index: u8) -> u8 {
         panic!("Invalid palette id");
     }
 
-    palette >> (index << 1) & 0b11    
-}
-
-fn create_window() -> GlutinFacade {
-    use glium::DisplayBuild;
-    glium::glutin::WindowBuilder::new()
-        .with_dimensions(800, 800)
-        .with_title("Gameboy Emulator".to_string())
-        .build_glium()
-        .unwrap()
+    palette >> (index << 1) & 0b11
 }

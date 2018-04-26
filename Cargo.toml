@@ -2,11 +2,11 @@
 name = "gameboy"
 version = "0.1.0"
 authors = ["nwessing <nwessing3@gmail.com>"]
+build = "build.rs"
 
 [dependencies]
-glium = "*"
+sdl2 = "0.31"
 time = "*"
-glutin = "*"
 
 [profile.dev]
 opt-level = 1
