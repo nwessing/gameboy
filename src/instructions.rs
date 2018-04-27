@@ -32,8 +32,8 @@ pub fn get_instruction_set() -> Vec<Instruction> {
     vec![
         Instruction::new("NOP", 0x00, 0, 4, Box::new(nop)),
         Instruction::new("HALT", 0x76, 0, 4, Box::new(halt)),
-        Instruction::new("STOP", 0x10, 1, 4, Box::new(halt)),
-        
+        Instruction::new("STOP", 0x10, 1, 4, Box::new(stop)), // STOP has a length of 2 bytes, but doesn't use it as parameter.
+
         Instruction::new("LD A,n", 0x3E, 1, 8, load_x_imm(Reg8::A)),
         Instruction::new("LD B,n", 0x06, 1, 8, load_x_imm(Reg8::B)),
         Instruction::new("LD C,n", 0x0E, 1, 8, load_x_imm(Reg8::C)),
@@ -105,7 +105,7 @@ pub fn get_instruction_set() -> Vec<Instruction> {
         Instruction::new("LD (HL),H", 0x74, 0, 8, load_x_y(Reg8::MemHl, Reg8::H)),
         Instruction::new("LD (HL),L", 0x75, 0, 8, load_x_y(Reg8::MemHl, Reg8::L)),
         Instruction::new("LD (HL),n", 0x36, 1, 12, load_x_imm(Reg8::MemHl)),
-        
+
         Instruction::new("LD A,(BC)", 0x0A, 0, 8, Box::new(load_a_mem_bc)),
         Instruction::new("LD A,(DE)", 0x1A, 0, 8, Box::new(load_a_mem_de)),
         Instruction::new("LD A,(nn)", 0xFA, 2, 16, Box::new(load_a_mem_nn)),
@@ -136,7 +136,7 @@ pub fn get_instruction_set() -> Vec<Instruction> {
         Instruction::new("PUSH BC", 0xC5, 0, 16, Box::new(push_bc)),
         Instruction::new("PUSH DE", 0xD5, 0, 16, Box::new(push_de)),
         Instruction::new("PUSH HL", 0xE5, 0, 16, Box::new(push_hl)),
-        
+
         Instruction::new("POP AF", 0xF1, 0, 12, Box::new(pop_af)),
         Instruction::new("POP BC", 0xC1, 0, 12, Box::new(pop_bc)),
         Instruction::new("POP DE", 0xD1, 0, 12, Box::new(pop_de)),
@@ -221,7 +221,7 @@ pub fn get_instruction_set() -> Vec<Instruction> {
         Instruction::new("ADC A,H", 0x8C, 0, 4, Box::new(add_h_with_carry)),
         Instruction::new("ADC A,L", 0x8D, 0, 4, Box::new(add_l_with_carry)),
         Instruction::new("ADC A,(HL)", 0x8E, 0, 8, Box::new(add_mem_hl_with_carry)),
-        Instruction::new("ADC A,n", 0xCE, 1, 8, Box::new(add_n_with_carry)),        
+        Instruction::new("ADC A,n", 0xCE, 1, 8, Box::new(add_n_with_carry)),
 
         Instruction::new("SUB A", 0x97, 0, 4, Box::new(subtract_a)),
         Instruction::new("SUB B", 0x90, 0, 4, Box::new(subtract_b)),
@@ -258,7 +258,7 @@ pub fn get_instruction_set() -> Vec<Instruction> {
         Instruction::new("JP Z,nn", 0xCA, 2, 12, Box::new(jump_z_flag)),
         Instruction::new("JP NC,nn", 0xD2, 2, 12, Box::new(jump_not_c_flag)),
         Instruction::new("JP C,nn", 0xDA, 2, 12, Box::new(jump_c_flag)),
-        Instruction::new("JR n", 0x18, 1, 8, Box::new(jump_pc_plus_byte)),        
+        Instruction::new("JR n", 0x18, 1, 8, Box::new(jump_pc_plus_byte)),
         Instruction::new("JR NZ,n", 0x20, 1, 8, Box::new(jump_not_z_flag_pc_plus)),
         Instruction::new("JR Z,n", 0x28, 1, 8, Box::new(jump_z_flag_pc_plus)),
         Instruction::new("JR NC,n", 0x30, 1, 8, Box::new(jump_not_c_flag_pc_plus)),
@@ -309,6 +309,11 @@ fn nop(_: &mut GameBoy, _: u8, _: u8) {
 fn halt(gb: &mut GameBoy, _: u8, _: u8) {
     gb.cpu.is_halted = true;
     println!("HALTED");
+}
+
+fn stop(gb: &mut GameBoy, a1: u8, _: u8) {
+    // gb.cpu.is_halted = true;
+    println!("STOPPED {}", a1);
 }
 
 fn pop_word(gb: &mut GameBoy) -> u16 {
@@ -498,7 +503,7 @@ fn add(gb: &mut GameBoy, reg_val: u8, value: u8, with_carry: bool) -> u8 {
         gb.cpu.flag.carry = false;
     }
 
-    gb.cpu.flag.half_carry = (((reg_val as u8) & 0x0F) + (value & 0x0F) + (extra as u8)) & 0x10 == 0x10; 
+    gb.cpu.flag.half_carry = (((reg_val as u8) & 0x0F) + (value & 0x0F) + (extra as u8)) & 0x10 == 0x10;
     gb.cpu.flag.zero = result == 0;
     gb.cpu.flag.subtract = false;
     result as u8
@@ -531,7 +536,7 @@ fn subtract(gb: &mut GameBoy, reg_val: u8, value: u8, with_carry: bool) -> u8 {
         gb.cpu.flag.carry = false;
     }
 
-    gb.cpu.flag.half_carry = (value & 0x0F) + extra > (reg_val & 0x0F); 
+    gb.cpu.flag.half_carry = (value & 0x0F) + extra > (reg_val & 0x0F);
     gb.cpu.flag.zero = result == 0;
     gb.cpu.flag.subtract = true;
     result as u8
@@ -1446,7 +1451,7 @@ fn decimal_adjust_a(gb: &mut GameBoy, _: u8, _: u8) {
     gb.cpu.flag.half_carry = false;
     if a > 0xFF {
         gb.cpu.flag.carry = true;
-    }    
+    }
     a &= 0xFF;
     gb.cpu.set_a(a as u8);
     gb.cpu.flag.zero = a == 0;

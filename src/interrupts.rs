@@ -30,6 +30,9 @@ pub fn check_interrupts(gb: &mut GameBoy) {
 
     if interrupts != 0 {
         gb.cpu.is_halted = false;
+        if gb.cpu.is_halted {
+            println!("GO");
+        }
     }
 }
 

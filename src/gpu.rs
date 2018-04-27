@@ -1,12 +1,4 @@
-use sdl2;
-use sdl2::render::WindowCanvas;
-use sdl2::event::Event;
-use sdl2::EventPump;
-use sdl2::keyboard::Keycode;
-use sdl2::pixels::PixelFormatEnum;
-
 use game_boy::GameBoy;
-use controller::Controller;
 
 const LCD_CONTROL_REG: u16 = 0xFF40;
 const LCDC_STATUS_REG: u16 = 0xFF41;
@@ -32,7 +24,7 @@ const LCD_STATUS_COINCIDENCE: u8 = 0b0000_0100;
 const VERTICAL_RES: u32 = 144;
 const CHANNELS: u32 = 3;
 const HORIZONTAL_RES: u32 = 160;
-const BUFFER_SIZE: usize = VERTICAL_RES as usize * HORIZONTAL_RES as usize * CHANNELS as usize;
+pub const BUFFER_SIZE: usize = VERTICAL_RES as usize * HORIZONTAL_RES as usize * CHANNELS as usize;
 
 const MODE0_HBLANK: u8 = 0;
 const MODE1_VBLANK: u8 = 1;
@@ -41,9 +33,7 @@ const MODE3_ACCESSING_VRAM: u8 = 3;
 
 
 pub struct Gpu {
-    canvas: WindowCanvas,
-    event_pump: EventPump,
-    window_buf: [u8; BUFFER_SIZE],
+    pub window_buf: [u8; BUFFER_SIZE],
     frame_step: u32,
 }
 
@@ -129,31 +119,14 @@ impl Sprite {
 
 impl Gpu {
     pub fn new() -> Gpu {
-        let sdl_context = sdl2::init().unwrap();
-        let video_subsystem = sdl_context.video().unwrap();
-
-        let window = video_subsystem.window("Gameboy Emulator", 800, 600)
-            .position_centered()
-            .build()
-            .unwrap();
-
-        let canvas = window.into_canvas()
-            .build()
-            .unwrap();
-
-        let event_pump = sdl_context.event_pump().unwrap();
-
         let window_buf = [0; BUFFER_SIZE];
-
         Gpu {
-            canvas: canvas,
-            event_pump: event_pump,
             window_buf: window_buf,
             frame_step: 0
         }
     }
 
-    pub fn update(&mut self, gb: &mut GameBoy, ticks: u8) {
+    pub fn update(&mut self, gb: &mut GameBoy, ticks: u8) -> bool {
         let status = gb.memory.get_byte(LCDC_STATUS_REG);
         let prev_mode = status & 0b0000_0011;
 
@@ -162,7 +135,7 @@ impl Gpu {
                 // println!("LCD turned off outside of VBLANK, this should not happen.");
             }
             gb.memory.set_owned_byte(LCDC_Y_COORD, 0);
-            return;
+            return false;
         }
 
         let frame = 70224;
@@ -216,13 +189,15 @@ impl Gpu {
             }
         }
 
-        if prev_mode == MODE0_HBLANK && mode == MODE1_VBLANK {
-            self.render_screen();
+        let ready_for_render = if prev_mode == MODE0_HBLANK && mode == MODE1_VBLANK {
             interrupt_flags |= 0b1;
             if status & LCD_STATUS_MODE1_INT == LCD_STATUS_MODE1_INT {
                 interrupt_flags |= 0b10;
             }
-        }
+            true
+        } else {
+            false
+        };
 
         if prev_mode == MODE1_VBLANK && mode == MODE2_ACCESSING_OAM &&
            status & LCD_STATUS_MODE2_INT == LCD_STATUS_MODE2_INT {
@@ -231,6 +206,7 @@ impl Gpu {
 
         gb.memory.set_owned_byte(0xFF0F, interrupt_flags);
         gb.memory.set_owned_byte(LCDC_STATUS_REG, (status & LCD_STATUS_FLAG_MASK) | mode | coincidence_flag);
+        return ready_for_render;
     }
 
     pub fn draw_scan_line(&mut self, gb: &GameBoy, scan_line: u8) {
@@ -271,7 +247,6 @@ impl Gpu {
                 0 //white
             };
 
-            // let mut draw_bg = true;
             for i in 0..sprites.len() {
                 let sprite = &sprites[i];
                 if sprite.left() <= (x as i16) && sprite.right() > (x as i16) && (sprite.above_bg() || bg_palette_index == 0) {
@@ -302,48 +277,6 @@ impl Gpu {
                 self.window_buf[index_buffer + 2] = bg_color.2;
             }
         }
-    }
-
-    pub fn render_screen(&mut self) {
-        let texture_creator = self.canvas.texture_creator();
-        let mut texture = texture_creator.create_texture_streaming(PixelFormatEnum::RGB24, 160, 144).unwrap();
-        texture.with_lock(None, |buffer: &mut [u8], _: usize| {
-            for i in 0..self.window_buf.len() {
-                buffer[i] = self.window_buf[i];
-            }
-        }).unwrap();
-        self.canvas.copy(&texture, None, None).unwrap();
-        self.canvas.present();
-    }
-
-    pub fn check_input(&mut self, gb: &mut GameBoy, controller: &mut Controller) {
-        for event in self.event_pump.poll_iter() {
-            match event {
-                Event::Quit {..} => gb.request_exit(),
-                Event::KeyDown { keycode, .. } => handle_input(controller, true, keycode),
-                Event::KeyUp { keycode, .. } => handle_input(controller, false, keycode),
-                _ => ()
-            }
-        }
-    }
-}
-
-fn handle_input(controller: &mut Controller, pressed: bool, key: Option<Keycode>) {
-    let keycode = match key {
-        Some(keycode) => keycode,
-        None => return
-    };
-
-    match keycode {
-        Keycode::W => controller.up_changed(pressed),
-        Keycode::A => controller.left_changed(pressed),
-        Keycode::S => controller.down_changed(pressed),
-        Keycode::D => controller.right_changed(pressed),
-        Keycode::M => controller.b_changed(pressed),
-        Keycode::K => controller.a_changed(pressed),
-        Keycode::J => controller.start_changed(pressed),
-        Keycode::H => controller.select_changed(pressed),
-        _ => ()
     }
 }
 

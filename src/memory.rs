@@ -83,8 +83,8 @@ impl Memory {
             4 => println!("RAM: 16 banks of 8kB (128Kb)"),
             x => panic!("ROM specified incorrect size for external RAM: {}", x)
         };
-        
-        self.use_mbc1 = mbc_type >= 1 && mbc_type < 4; 
+
+        self.use_mbc1 = mbc_type >= 1 && mbc_type < 4;
         let rom_size = if self.use_mbc1 { 0x4000 } else { 0x8000 };
         for i in 0..rom_size {
             self.mem[i] = rom_buf[i];
@@ -123,16 +123,20 @@ impl Memory {
 
     pub fn set_byte(&mut self, address: u16, b: u8) {
 
-        if address == 0xFF40 {
-            println!("LCD Control {:08b}", self.mem[address as usize]);
-        }
+        // if address == 0xFF40 {
+        //     println!("LCD Control {:08b}", self.mem[address as usize]);
+        // }
 
-        if address == 0xFFFF {
-            println!("IE {:08b}", b);
-        }
+        // if address == 0xFFFF {
+        //     println!("IE {:08b}", b);
+        // }
 
-        if address < 0x2000 {
-            println!("RAM Enable: {}", b);
+        // if address < 0x2000 {
+        //     println!("RAM Enable: {}", b);
+        // }
+
+        if address == 0xFF07 {
+            println!("TAC set to {}", b);
         }
 
         if address >= 0x2000 && address < 0x4000 {
@@ -144,13 +148,13 @@ impl Memory {
                 0x60 => 0x61,
                 x => x
             };
-            println!("Selected ROM bank {}", self.selected_rom_bank);
+            // println!("Selected ROM bank {}", self.selected_rom_bank);
             return;
         }
 
-        if address >= 0xA000 && address < 0xC000 {
-            println!("Selected RAM bank {}", b);
-        }
+        // if address >= 0xA000 && address < 0xC000 {
+        //     println!("Selected RAM bank {}", b);
+        // }
 
         if address < 0x8000 {
             //Read only
@@ -196,7 +200,7 @@ impl Memory {
         //         return;
         //     }
         // }
-        
+
         if address >= 0xE000 && address < 0xFE00 {
             self.mem[(address - 0x2000) as usize] = b;
             return;
