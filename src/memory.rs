@@ -1,16 +1,13 @@
 use util::get_lower;
 use util::get_upper;
 use util::concat_bytes;
+use mbc1::MemoryBankController1;
+
 
 pub struct Memory {
     mem: Vec<u8>,
-    use_mbc1: bool,
-    use_battery: bool,
     boot_rom: Vec<u8>,
-    selected_rom_bank: u8,
-    selected_ram_bank: u8,
-    rom_banks: Vec<Vec<u8>>,
-    ram_banks: Vec<Vec<u8>>,
+    mbc1: Option<MemoryBankController1>
 }
 
 impl Memory {
@@ -18,12 +15,7 @@ impl Memory {
         Memory {
             mem: vec![0; 0x10000],
             boot_rom: vec![0; 0x100],
-            use_mbc1: false,
-            use_battery: false,
-            selected_rom_bank: 1,
-            selected_ram_bank: 0,
-            rom_banks: vec![],
-            ram_banks: vec![]
+            mbc1: None
         }
     }
 
@@ -69,89 +61,41 @@ impl Memory {
 
     pub fn load_rom(&mut self, rom_buf: &Vec<u8>) {
         let mbc_type = rom_buf[0x147];
-        let num_rom_banks: u32 = match rom_buf[0x148] {
-            0 => 2,
-            1 => 4,
-            2 => 8,
-            3 => 16,
-            4 => 32,
-            5 => 64,
-            6 => 128,
-            x => panic!("ROM specified incorrect size at 0x148: {}", x)
-        };
+        println!("mbc type = {:02X}", mbc_type);
 
-        let ram_size = rom_buf[0x149];
-        let num_ram_banks = match ram_size {
-            0 => 0,
-            1 => 1, //2KB instead of 8KB
-            2 => 1,
-            3 => 4,
-            4 => 16,
-            x => panic!("ROM specified incorrect size for external RAM: {}", x)
-        };
-
-        self.use_mbc1 = mbc_type >= 1 && mbc_type < 4; 
-        self.use_battery = match mbc_type {
-            0x03 => true,
-            0x06 => true,
-            0x09 => true,
-            0x0D => true,
-            0x13 => true,
-            0x1B => true,
-            0x1E => true,
-            _ => false
-        };
-
-        let rom_size = if self.use_mbc1 { 0x4000 } else { 0x8000 };
-        for i in 0..rom_size {
-            self.mem[i] = rom_buf[i];
+        // TODO: 19 is actually MBC3 but we will use MBC1 for now
+        let use_mbc1 = mbc_type >= 1 && mbc_type <= 3 || mbc_type == 19;
+        if use_mbc1 {
+            let mut mbc1 = MemoryBankController1::new();
+            mbc1.initialize(rom_buf);
+            self.mbc1 = Some(mbc1);
         }
 
-        println!("Game uses memory banking {}", mbc_type);
-        println!("ROM banks = {}", num_rom_banks);
-        println!("RAM banks = {}", num_ram_banks);
-
-        if self.use_mbc1 {
-            for i_bank in 1..num_rom_banks {
-                let start = i_bank * 0x4000;
-                let mut bank = vec![0; 0x4000];
-                for i in start..(start + 0x4000) {
-                    bank[(i - start) as usize] = rom_buf[i as usize];
-                }
-                self.rom_banks.push(bank);
-            }
-
-            for _i_bank in 0..num_ram_banks {
-                self.ram_banks.push(vec![0; if ram_size == 1 { 0x800 } else { 0x2000 }]);
-            }
+        let rom_size = if use_mbc1 { 0x4000 } else { 0x8000 };
+        for i in 0..rom_size {
+            self.mem[i] = rom_buf[i];
         }
     }
 
     pub fn load_external_ram(&mut self, save_buf: &Vec<u8>) {
-        println!("Loading external RAM {0}", save_buf.len());
-        let num_ram_banks = self.ram_banks.len();
-        for i_bank in 0..num_ram_banks {
-            let bank = &mut self.ram_banks[i_bank];
-            for i in 0..bank.len() {
-                bank[i] = save_buf[(i_bank * bank.len()) + i];
-            }
-        }
+        match self.mbc1 {
+            Some(ref mut mbc1) => mbc1.load_external_ram(save_buf),
+            None => panic!("No external RAM banks")
+        };
     }
 
     pub fn use_battery(&self) -> bool {
-        self.use_battery
+        match self.mbc1 {
+            Some(ref mbc1) => mbc1.use_battery,
+            None => false
+        }
     }
 
     pub fn get_external_ram_banks(&self) -> Vec<u8> {
-        let num_ram_banks = self.ram_banks.len();
-        let mut result = vec![0; num_ram_banks * self.ram_banks[0].len()];
-        for i_bank in 0..num_ram_banks {
-            let bank = &self.ram_banks[i_bank];
-            for i in 0..bank.len() {
-                result[(i_bank * bank.len()) + i] = bank[i];
-            }
+        match self.mbc1 {
+            Some(ref mbc1) => mbc1.get_external_ram_banks(),
+            None => panic!("No external RAM banks")
         }
-        result
     }
 
     pub fn get_byte(&self, address: u16) -> u8 {
@@ -159,21 +103,19 @@ impl Memory {
             return self.boot_rom[address as usize];
         }
 
-        if self.use_mbc1 && address >= 0x4000 && address < 0x8000 {
-            //ROM banks
-            return self.rom_banks[(self.selected_rom_bank - 1) as usize][(address - 0x4000) as usize];
-        }
-
-        if address >= 0xA000 && address < 0xC000 {
-            //RAM banks
-            return self.ram_banks[self.selected_ram_bank as usize][(address - 0xA000) as usize];
+        match self.mbc1 {
+            Some(ref mbc1) => {
+                match mbc1.get_byte(address) {
+                    Some(x) => { return x; },
+                    None => ()
+                }
+            },
+            None => ()
         }
 
         if address >= 0xE000 && address < 0xFE00 {
             return self.mem[(address - 0x2000) as usize];
         }
-
-
 
         self.mem[address as usize]
     }
@@ -187,48 +129,25 @@ impl Memory {
         //     println!("IE {:08b}", b);
         // }
 
-        // if address < 0x2000 {
-        //     println!("RAM Enable: {}", b);
+        match self.mbc1 {
+            Some(ref mut mbc1) => {
+                if mbc1.set_byte(address, b) {
+                    return;
+                }
+            },
+            None => ()
+        }
+
+        // blarrg's test roms store whether the machine is color or not at D800
+        // for some reason the cpu instr test roms detect our emulator as color
+        // if address == 0xD800 {
+        //     self.mem[address as usize] = 0;
+        //     println!("D800 = {:02X}", b);
+        //     return;
         // }
 
         if address == 0xFF07 {
             println!("TAC set to {}", b);
-        }
-
-        if address >= 0x2000 && address < 0x4000 {
-            let b = b & 0x1F;
-            self.selected_rom_bank = match b {
-                0x00 => 0x01,
-                0x20 => 0x21,
-                0x40 => 0x41,
-                0x60 => 0x61,
-                x => x
-            };
-            // println!("Selected ROM bank {}", self.selected_rom_bank);
-            return;
-        }
-
-        // if address >= 0xA000 && address < 0xC000 {
-        //     println!("Selected RAM bank {}", b);
-        // }
-
-        if address >= 0x6000 && address < 0x8000 {
-            println!("Setting memory mode to {}", b & 1);
-        }
-
-        // if address >= 0xA000 && address < 0xC000 {
-        //     println!("Selected RAM bank {}", b);
-        // }
-
-        if address < 0x8000 {
-            //Read only
-            return;
-        }
-
-        if address >= 0xA000 && address < 0xC000 {
-            //RAM banks
-            self.ram_banks[self.selected_ram_bank as usize][(address - 0xA000) as usize] = b;
-            return;
         }
 
         if address == 0xFF04 {
@@ -287,6 +206,11 @@ impl Memory {
                 self.mem[(0xFE00 + (trans_addr as u16)) as usize] = self.mem[concat_bytes(b, trans_addr) as usize];
             }
             // return;
+        }
+
+        if address < 0x8000 {
+            //Read only
+            return;
         }
 
         self.mem[address as usize] = b;

@@ -23,8 +23,7 @@ cargo run -- roms/tetris.gb
  - window rendering - pick up where left off when window is disabled and reenabled
  - joypad interrupt
  - STOP instruction
- - MBC 1 upper ROM banks
- - MBC 1 RAM
+ - MBC1 RAM enable
  - Memory bank controllers 2 and up
  - keybinding configuration
  - ROM selection

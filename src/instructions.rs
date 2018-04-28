@@ -313,7 +313,7 @@ fn halt(gb: &mut GameBoy, _: u8, _: u8) {
 
 fn stop(gb: &mut GameBoy, a1: u8, _: u8) {
     // gb.cpu.is_halted = true;
-    println!("STOPPED {}", a1);
+    println!("{:04X} STOPPED {}", gb.cpu.pc, a1);
 }
 
 fn pop_word(gb: &mut GameBoy) -> u16 {

@@ -4,6 +4,7 @@ mod cpu;
 mod game_boy;
 mod util;
 mod memory;
+mod mbc1;
 mod math;
 mod gpu;
 mod clock;
@@ -39,7 +40,7 @@ fn main() {
     let game_file_path = Path::new(&args[1]);
 
     let mut gb = GameBoy::new();
-    let skip_boot = true;
+    let skip_boot = false;
     gb.power_on();
 
     if !skip_boot {
@@ -77,6 +78,7 @@ fn main() {
 
     clock.start();
     loop {
+        // pause();
         let cycles_elapsed = execute_next_instruction(&mut gb, &instruction_set);
 
         clock.tick(&mut gb, cycles_elapsed);
@@ -126,6 +128,7 @@ fn execute_next_instruction(mut gb: &mut GameBoy, instruction_set: &InstructionS
         Option::Some(x) => x,
     };
 
+    // println!("{} {:02X} {:02X}", instruction.name, arg1, arg2);
     gb.cpu.pc = gb.cpu.pc + (instruction.operand_length as u16) + if use_cb { 2 } else { 1 };
     (instruction.exec)(&mut gb, arg1, arg2);
     instruction.cycles
