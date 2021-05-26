@@ -1,17 +1,3 @@
-mod cb_instructions;
-mod clock;
-mod controller;
-mod cpu;
-mod game_boy;
-mod gpu;
-mod instructions;
-mod interrupts;
-mod math;
-mod mbc1;
-mod memory;
-mod tests;
-mod util;
-
 extern crate sdl2;
 extern crate time;
 
@@ -237,4 +223,3 @@ fn handle_input(controller: &mut Controller, pressed: bool, key: Option<Keycode>
         _ => (),
     }
 }
-

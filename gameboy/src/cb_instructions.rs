@@ -1,10 +1,10 @@
-use game_boy::GameBoy;
-use instructions::Instruction;
-use math::rotate_left;
-use math::rotate_right;
-use util::get_reg8;
-use util::set_reg8;
-use util::Reg8;
+use crate::game_boy::GameBoy;
+use crate::instructions::Instruction;
+use crate::math::rotate_left;
+use crate::math::rotate_right;
+use crate::util::get_reg8;
+use crate::util::set_reg8;
+use crate::util::Reg8;
 
 pub fn get_cb_instruction_set() -> Vec<Instruction> {
     vec![

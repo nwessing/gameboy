@@ -1,12 +1,12 @@
-use game_boy::GameBoy;
-use math::add_u16_and_i8;
-use math::add_u16_and_i8_affect_flags;
-use math::{rotate_left, rotate_right};
-use util::concat_bytes;
-use util::get_reg8;
-use util::push_word;
-use util::set_reg8;
-use util::Reg8;
+use crate::game_boy::GameBoy;
+use crate::math::add_u16_and_i8;
+use crate::math::add_u16_and_i8_affect_flags;
+use crate::math::{rotate_left, rotate_right};
+use crate::util::concat_bytes;
+use crate::util::get_reg8;
+use crate::util::push_word;
+use crate::util::set_reg8;
+use crate::util::Reg8;
 
 pub struct Instruction {
     pub name: &'static str,
@@ -1497,4 +1497,3 @@ fn decimal_adjust_a(gb: &mut GameBoy, _: u8, _: u8) {
     gb.cpu.set_a(a as u8);
     gb.cpu.flag.zero = a == 0;
 }
-

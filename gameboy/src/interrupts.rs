@@ -1,5 +1,5 @@
-use game_boy::GameBoy;
-use util::push_word;
+use crate::game_boy::GameBoy;
+use crate::util::push_word;
 
 const INTERRUPT_ENABLE_REG: u16 = 0xFFFF;
 const INTERRUPT_FLAG_REG: u16 = 0xFF0F;
@@ -54,4 +54,3 @@ fn get_interrupt_handler_addr(interrupt: u8) -> u16 {
         _ => panic!("Invalid interrupt"),
     }
 }
-

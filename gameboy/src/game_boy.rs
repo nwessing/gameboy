@@ -1,5 +1,5 @@
-use cpu::Cpu;
-use memory::Memory;
+use crate::cpu::Cpu;
+use crate::memory::Memory;
 
 pub struct GameBoy {
     pub cpu: Cpu,
@@ -8,8 +8,8 @@ pub struct GameBoy {
 }
 
 impl GameBoy {
-    pub fn new() -> GameBoy {
-        GameBoy {
+    pub fn new() -> Self {
+        Self {
             cpu: Cpu::new(),
             memory: Memory::new(),
             exit_requested: false,
@@ -41,4 +41,3 @@ impl GameBoy {
         self.exit_requested
     }
 }
-

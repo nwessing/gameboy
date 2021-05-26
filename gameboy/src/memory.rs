@@ -1,7 +1,7 @@
-use mbc1::MemoryBankController1;
-use util::concat_bytes;
-use util::get_lower;
-use util::get_upper;
+use crate::mbc1::MemoryBankController1;
+use crate::util::concat_bytes;
+use crate::util::get_lower;
+use crate::util::get_upper;
 
 pub struct Memory {
     mem: Vec<u8>,
@@ -231,4 +231,3 @@ impl Memory {
         self.set_byte(address + 1, get_upper(word));
     }
 }
-

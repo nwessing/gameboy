@@ -1,4 +1,4 @@
-use game_boy::GameBoy;
+use crate::game_boy::GameBoy;
 
 const LCD_CONTROL_REG: u16 = 0xFF40;
 const LCDC_STATUS_REG: u16 = 0xFF41;
@@ -21,9 +21,9 @@ const LCD_STATUS_MODE1_INT: u8 = 0b0001_0000;
 const LCD_STATUS_MODE0_INT: u8 = 0b0000_1000;
 const LCD_STATUS_COINCIDENCE: u8 = 0b0000_0100;
 
-const VERTICAL_RES: u32 = 144;
-const CHANNELS: u32 = 3;
-const HORIZONTAL_RES: u32 = 160;
+pub const VERTICAL_RES: u32 = 144;
+pub const CHANNELS: u32 = 3;
+pub const HORIZONTAL_RES: u32 = 160;
 pub const BUFFER_SIZE: usize = VERTICAL_RES as usize * HORIZONTAL_RES as usize * CHANNELS as usize;
 
 const MODE0_HBLANK: u8 = 0;
@@ -32,7 +32,7 @@ const MODE2_ACCESSING_OAM: u8 = 2;
 const MODE3_ACCESSING_VRAM: u8 = 3;
 
 pub struct Gpu {
-    pub window_buf: [u8; BUFFER_SIZE],
+    pub window_buf: Box<[u8; BUFFER_SIZE]>,
     frame_step: u32,
 }
 
@@ -57,8 +57,8 @@ impl Sprite {
         Sprite {
             y_pos: top,
             x_pos: left,
-            tile_pattern_addr: tile_pattern_addr,
-            attributes: attributes,
+            tile_pattern_addr,
+            attributes,
             index: sprite_index,
             height: height as i16,
         }
@@ -118,13 +118,15 @@ impl Sprite {
 
 impl Gpu {
     pub fn new() -> Gpu {
-        let window_buf = [0; BUFFER_SIZE];
+        let window_buf = Box::new([0; BUFFER_SIZE]);
         Gpu {
-            window_buf: window_buf,
+            window_buf,
             frame_step: 0,
         }
     }
 
+    /// Updates GPU state and returns whether the frame buffer has a completed
+    /// frame
     pub fn update(&mut self, gb: &mut GameBoy, ticks: u8) -> bool {
         let status = gb.memory.get_byte(LCDC_STATUS_REG);
         let prev_mode = status & 0b0000_0011;
@@ -210,7 +212,8 @@ impl Gpu {
             LCDC_STATUS_REG,
             (status & LCD_STATUS_FLAG_MASK) | mode | coincidence_flag,
         );
-        return ready_for_render;
+
+        ready_for_render
     }
 
     pub fn draw_scan_line(&mut self, gb: &GameBoy, scan_line: u8) {

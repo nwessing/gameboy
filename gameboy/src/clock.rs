@@ -1,4 +1,4 @@
-use game_boy::GameBoy;
+use crate::game_boy::GameBoy;
 use time;
 
 const CLOCK_SPEED: u64 = 4_194_304;
@@ -71,4 +71,3 @@ impl Clock {
         self.ticks += num_cycle as u64;
     }
 }
-

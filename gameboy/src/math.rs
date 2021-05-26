@@ -1,6 +1,6 @@
-use game_boy::GameBoy;
-use util::to_signed_word;
-use util::to_unsigned_word;
+use crate::game_boy::GameBoy;
+use crate::util::to_signed_word;
+use crate::util::to_unsigned_word;
 
 pub fn rotate_left(gb: &mut GameBoy, val: u8, through: bool) -> u8 {
     gb.cpu.flag.subtract = false;
@@ -65,4 +65,3 @@ pub fn add_u16_and_i8_affect_flags(gb: &mut GameBoy, unsign: u16, sign: u8) -> u
         (result & 0xFFFF) as u16
     }
 }
-

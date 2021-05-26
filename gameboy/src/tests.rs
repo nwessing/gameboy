@@ -1,13 +1,13 @@
 #[allow(unused_imports)]
-use cb_instructions;
+use crate::cb_instructions;
 #[allow(unused_imports)]
-use cpu::InstructionSet;
+use crate::cpu::InstructionSet;
 #[allow(unused_imports)]
-use game_boy::GameBoy;
+use crate::game_boy::GameBoy;
 #[allow(unused_imports)]
-use instructions;
+use crate::instructions;
 #[allow(unused_imports)]
-use util;
+use crate::util;
 
 #[test]
 fn test() {

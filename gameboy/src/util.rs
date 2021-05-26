@@ -1,4 +1,4 @@
-use game_boy::GameBoy;
+use crate::game_boy::GameBoy;
 
 #[derive(Copy, Clone)]
 pub enum Reg8 {

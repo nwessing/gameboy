@@ -1,4 +1,4 @@
-use game_boy::GameBoy;
+use crate::game_boy::GameBoy;
 
 const JOYPAD_REG_ADDR: u16 = 0xFF00;
 
@@ -68,4 +68,3 @@ impl Controller {
         }
     }
 }
-

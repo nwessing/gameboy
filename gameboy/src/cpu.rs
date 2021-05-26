@@ -1,12 +1,12 @@
-use cb_instructions::get_cb_instruction_set;
-use instructions::get_instruction_set;
-use instructions::Instruction;
+use crate::cb_instructions::get_cb_instruction_set;
+use crate::instructions::get_instruction_set;
+use crate::instructions::Instruction;
+use crate::util::concat_bytes;
+use crate::util::get_lower;
+use crate::util::get_upper;
+use crate::util::set_lower;
+use crate::util::set_upper;
 use std::fmt;
-use util::concat_bytes;
-use util::get_lower;
-use util::get_upper;
-use util::set_lower;
-use util::set_upper;
 
 pub struct FlagRegister {
     pub zero: bool,
@@ -206,4 +206,3 @@ impl InstructionSet {
         self.cb_instructions[opcode as usize].as_ref()
     }
 }
-
