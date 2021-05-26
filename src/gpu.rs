@@ -31,7 +31,6 @@ const MODE1_VBLANK: u8 = 1;
 const MODE2_ACCESSING_OAM: u8 = 2;
 const MODE3_ACCESSING_VRAM: u8 = 3;
 
-
 pub struct Gpu {
     pub window_buf: [u8; BUFFER_SIZE],
     frame_step: u32,
@@ -44,7 +43,7 @@ struct Sprite {
     tile_pattern_addr: u16,
     attributes: u8,
     index: u8,
-    height: i16
+    height: i16,
 }
 
 impl Sprite {
@@ -61,11 +60,11 @@ impl Sprite {
             tile_pattern_addr: tile_pattern_addr,
             attributes: attributes,
             index: sprite_index,
-            height: height as i16
+            height: height as i16,
         }
     }
 
-    pub fn index(&self) -> u8{
+    pub fn index(&self) -> u8 {
         self.index
     }
 
@@ -87,7 +86,7 @@ impl Sprite {
 
     pub fn get_tile_pattern(&self, gb: &GameBoy, scan_line: u8) -> u16 {
         let sprite_y = if self.is_mirrored_vertically() {
-            (((self.height - 1) - (((scan_line as i16) - self.top())) % self.height)) as u16
+            ((self.height - 1) - ((scan_line as i16) - self.top()) % self.height) as u16
         } else {
             (((scan_line as i16) - self.top()) % self.height) as u16
         };
@@ -98,9 +97,9 @@ impl Sprite {
 
     fn get_palette(&self, gb: &GameBoy) -> u8 {
         if self.attributes & 0x10 == 0x10 {
-           gb.memory.get_byte(OBJECT_PALETTE1_DATA_REG)
+            gb.memory.get_byte(OBJECT_PALETTE1_DATA_REG)
         } else {
-           gb.memory.get_byte(OBJECT_PALETTE0_DATA_REG)
+            gb.memory.get_byte(OBJECT_PALETTE0_DATA_REG)
         }
     }
 
@@ -122,7 +121,7 @@ impl Gpu {
         let window_buf = [0; BUFFER_SIZE];
         Gpu {
             window_buf: window_buf,
-            frame_step: 0
+            frame_step: 0,
         }
     }
 
@@ -199,13 +198,18 @@ impl Gpu {
             false
         };
 
-        if prev_mode == MODE1_VBLANK && mode == MODE2_ACCESSING_OAM &&
-           status & LCD_STATUS_MODE2_INT == LCD_STATUS_MODE2_INT {
+        if prev_mode == MODE1_VBLANK
+            && mode == MODE2_ACCESSING_OAM
+            && status & LCD_STATUS_MODE2_INT == LCD_STATUS_MODE2_INT
+        {
             interrupt_flags |= 0b10;
         }
 
         gb.memory.set_owned_byte(0xFF0F, interrupt_flags);
-        gb.memory.set_owned_byte(LCDC_STATUS_REG, (status & LCD_STATUS_FLAG_MASK) | mode | coincidence_flag);
+        gb.memory.set_owned_byte(
+            LCDC_STATUS_REG,
+            (status & LCD_STATUS_FLAG_MASK) | mode | coincidence_flag,
+        );
         return ready_for_render;
     }
 
@@ -224,12 +228,18 @@ impl Gpu {
 
         let sprites = get_sprites_in_scan_line(gb, scan_line);
         for x in 0..HORIZONTAL_RES {
-            let index_buffer = ((scan_line as usize * HORIZONTAL_RES as usize) + x as usize ) * CHANNELS as usize;
+            let index_buffer =
+                ((scan_line as usize * HORIZONTAL_RES as usize) + x as usize) * CHANNELS as usize;
 
             let mut draw_bg = true;
             let window_x = (x as i16) - (window_x_offset(gb) as i16) + 7;
             if window_enabled(gb) && window_y >= 0 && window_x >= 0 {
-                let window_palette_index = get_tile_map_palette_index(gb, window_tile_map(gb), window_x as u16, window_y as u16);
+                let window_palette_index = get_tile_map_palette_index(
+                    gb,
+                    window_tile_map(gb),
+                    window_x as u16,
+                    window_y as u16,
+                );
                 let color = get_color(get_palette_color(bg_palette, window_palette_index));
                 self.window_buf[index_buffer] = color.0;
                 self.window_buf[index_buffer + 1] = color.1;
@@ -249,7 +259,10 @@ impl Gpu {
 
             for i in 0..sprites.len() {
                 let sprite = &sprites[i];
-                if sprite.left() <= (x as i16) && sprite.right() > (x as i16) && (sprite.above_bg() || bg_palette_index == 0) {
+                if sprite.left() <= (x as i16)
+                    && sprite.right() > (x as i16)
+                    && (sprite.above_bg() || bg_palette_index == 0)
+                {
                     let sprite_pattern = sprite.get_tile_pattern(gb, scan_line);
                     let sprite_x = if sprite.is_mirrored_horizontally() {
                         (((x as i16) - sprite.left()) % 8) as u8
@@ -259,7 +272,8 @@ impl Gpu {
                     let sprite_palette_index = get_palette_index(sprite_pattern, sprite_x);
                     if sprite_palette_index != 0 {
                         let sprite_palette = sprite.get_palette(gb);
-                        let sprite_color_id = get_palette_color(sprite_palette, sprite_palette_index);
+                        let sprite_color_id =
+                            get_palette_color(sprite_palette, sprite_palette_index);
                         let sprite_color = get_color(sprite_color_id);
                         self.window_buf[index_buffer] = sprite_color.0;
                         self.window_buf[index_buffer + 1] = sprite_color.1;
@@ -288,8 +302,10 @@ fn get_sprites_in_scan_line(gb: &GameBoy, scan_line: u8) -> Vec<Sprite> {
         if sprite.top() <= (scan_line as i16) && sprite.bottom() > (scan_line as i16) {
             let mut insertion_index = sprites.len();
             for (i, existing_sprite) in sprites.iter().enumerate() {
-                if existing_sprite.left() > sprite.left() ||
-                   (existing_sprite.left() == sprite.left() && sprite.index() > existing_sprite.index()) {
+                if existing_sprite.left() > sprite.left()
+                    || (existing_sprite.left() == sprite.left()
+                        && sprite.index() > existing_sprite.index())
+                {
                     insertion_index = i;
                     break;
                 }
@@ -302,7 +318,7 @@ fn get_sprites_in_scan_line(gb: &GameBoy, scan_line: u8) -> Vec<Sprite> {
 }
 
 fn get_palette_index(pattern: u16, x: u8) -> u8 {
-    (((pattern >> x) & 0b1) | ((pattern >> (x+7)) & 0b10)) as u8
+    (((pattern >> x) & 0b1) | ((pattern >> (x + 7)) & 0b10)) as u8
 }
 
 fn get_tile_map_palette_index(gb: &GameBoy, map_id: bool, x: u16, y: u16) -> u8 {
@@ -384,7 +400,7 @@ fn get_color(color_id: u8) -> (u8, u8, u8) {
         2 => (96u8, 96u8, 96u8),
         1 => (192u8, 192u8, 192u8),
         0 => (255u8, 255u8, 255u8),
-        _ => (255u8, 0u8, 0u8) //Having Red on the screen should indicate something went wrong.
+        _ => (255u8, 0u8, 0u8), //Having Red on the screen should indicate something went wrong.
     }
 }
 

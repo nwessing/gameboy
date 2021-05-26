@@ -1,18 +1,18 @@
-use instructions::Instruction;
-use instructions::get_instruction_set;
 use cb_instructions::get_cb_instruction_set;
+use instructions::get_instruction_set;
+use instructions::Instruction;
 use std::fmt;
-use util::get_upper;
-use util::get_lower;
-use util::set_upper;
-use util::set_lower;
 use util::concat_bytes;
+use util::get_lower;
+use util::get_upper;
+use util::set_lower;
+use util::set_upper;
 
 pub struct FlagRegister {
     pub zero: bool,
     pub subtract: bool,
     pub half_carry: bool,
-    pub carry: bool
+    pub carry: bool,
 }
 
 impl FlagRegister {
@@ -66,12 +66,12 @@ pub struct Cpu {
     pub pc: u16,
     pub interrupt_enable_master: bool,
     pub flag: FlagRegister,
-    pub is_halted: bool
+    pub is_halted: bool,
 }
 
 impl fmt::Display for Cpu {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "af: 0x{:02X}{}\nbc: 0x{:04X}\nde: 0x{:04X}\nhl: 0x{:04X}\nsp: 0x{:04X}\npc: 0x{:04X}\n", 
+        write!(f, "af: 0x{:02X}{}\nbc: 0x{:04X}\nde: 0x{:04X}\nhl: 0x{:04X}\nsp: 0x{:04X}\npc: 0x{:04X}\n",
             self.get_a(), self.flag, self.bc, self.de, self.hl, self.sp, self.pc)
     }
 }
@@ -87,7 +87,7 @@ impl Cpu {
             pc: 0,
             interrupt_enable_master: false,
             flag: FlagRegister::new(),
-            is_halted: false
+            is_halted: false,
         }
     }
 
@@ -98,7 +98,7 @@ impl Cpu {
     pub fn get_a(&self) -> u8 {
         self.a
     }
-    
+
     pub fn get_b(&self) -> u8 {
         get_upper(self.bc)
     }
@@ -168,7 +168,7 @@ impl Cpu {
 
 pub struct InstructionSet {
     instructions: Vec<Option<Instruction>>,
-    cb_instructions: Vec<Option<Instruction>>
+    cb_instructions: Vec<Option<Instruction>>,
 }
 
 impl InstructionSet {
@@ -195,7 +195,7 @@ impl InstructionSet {
 
         InstructionSet {
             instructions: instruction_map,
-            cb_instructions: cb_instruction_map
+            cb_instructions: cb_instruction_map,
         }
     }
     pub fn get_instruction(&self, opcode: u8) -> Option<&Instruction> {
@@ -206,3 +206,4 @@ impl InstructionSet {
         self.cb_instructions[opcode as usize].as_ref()
     }
 }
+

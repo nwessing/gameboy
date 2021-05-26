@@ -4,15 +4,15 @@ use memory::Memory;
 pub struct GameBoy {
     pub cpu: Cpu,
     pub memory: Memory,
-    exit_requested: bool
+    exit_requested: bool,
 }
 
 impl GameBoy {
-    pub fn new() -> GameBoy{
+    pub fn new() -> GameBoy {
         GameBoy {
             cpu: Cpu::new(),
             memory: Memory::new(),
-            exit_requested: false
+            exit_requested: false,
         }
     }
 
@@ -41,3 +41,4 @@ impl GameBoy {
         self.exit_requested
     }
 }
+

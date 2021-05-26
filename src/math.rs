@@ -52,7 +52,7 @@ pub fn add_u16_and_i8_affect_flags(gb: &mut GameBoy, unsign: u16, sign: u8) -> u
     gb.cpu.flag.zero = false;
     let signed_arg = to_signed_word(sign);
     let unsigned_arg = sign as u16;
-     
+
     if signed_arg < 0 {
         let result = (unsign as i32) + (signed_arg as i32);
         gb.cpu.flag.carry = result & 0xFF <= (unsign as i32) & 0xFF;
@@ -65,3 +65,4 @@ pub fn add_u16_and_i8_affect_flags(gb: &mut GameBoy, unsign: u16, sign: u8) -> u
         (result & 0xFFFF) as u16
     }
 }
+

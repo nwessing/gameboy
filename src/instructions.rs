@@ -1,29 +1,35 @@
 use game_boy::GameBoy;
-use util::concat_bytes;
-use util::push_word;
-use util::Reg8;
-use util::get_reg8;
-use util::set_reg8;
 use math::add_u16_and_i8;
 use math::add_u16_and_i8_affect_flags;
 use math::{rotate_left, rotate_right};
+use util::concat_bytes;
+use util::get_reg8;
+use util::push_word;
+use util::set_reg8;
+use util::Reg8;
 
 pub struct Instruction {
     pub name: &'static str,
     pub opcode: u8,
     pub operand_length: u8,
     pub cycles: u8,
-    pub exec: Box<Fn(&mut GameBoy, u8, u8)>
+    pub exec: Box<dyn Fn(&mut GameBoy, u8, u8)>,
 }
 
 impl Instruction {
-    pub fn new(name: &'static str, opcode: u8, operand_length: u8, cycles: u8, exec: Box<Fn(&mut GameBoy, u8, u8)>) -> Instruction {
+    pub fn new(
+        name: &'static str,
+        opcode: u8,
+        operand_length: u8,
+        cycles: u8,
+        exec: Box<dyn Fn(&mut GameBoy, u8, u8)>,
+    ) -> Instruction {
         Instruction {
-            name: name,
-            opcode: opcode,
-            operand_length: operand_length,
-            cycles: cycles,
-            exec: exec,
+            name,
+            opcode,
+            operand_length,
+            cycles,
+            exec,
         }
     }
 }
@@ -33,7 +39,6 @@ pub fn get_instruction_set() -> Vec<Instruction> {
         Instruction::new("NOP", 0x00, 0, 4, Box::new(nop)),
         Instruction::new("HALT", 0x76, 0, 4, Box::new(halt)),
         Instruction::new("STOP", 0x10, 1, 4, Box::new(stop)), // STOP has a length of 2 bytes, but doesn't use it as parameter.
-
         Instruction::new("LD A,n", 0x3E, 1, 8, load_x_imm(Reg8::A)),
         Instruction::new("LD B,n", 0x06, 1, 8, load_x_imm(Reg8::B)),
         Instruction::new("LD C,n", 0x0E, 1, 8, load_x_imm(Reg8::C)),
@@ -105,43 +110,89 @@ pub fn get_instruction_set() -> Vec<Instruction> {
         Instruction::new("LD (HL),H", 0x74, 0, 8, load_x_y(Reg8::MemHl, Reg8::H)),
         Instruction::new("LD (HL),L", 0x75, 0, 8, load_x_y(Reg8::MemHl, Reg8::L)),
         Instruction::new("LD (HL),n", 0x36, 1, 12, load_x_imm(Reg8::MemHl)),
-
         Instruction::new("LD A,(BC)", 0x0A, 0, 8, Box::new(load_a_mem_bc)),
         Instruction::new("LD A,(DE)", 0x1A, 0, 8, Box::new(load_a_mem_de)),
         Instruction::new("LD A,(nn)", 0xFA, 2, 16, Box::new(load_a_mem_nn)),
         Instruction::new("LD (BC),A", 0x02, 0, 8, Box::new(load_mem_bc_a)),
         Instruction::new("LD (DE),A", 0x12, 0, 8, Box::new(load_mem_de_a)),
         Instruction::new("LD (nn),A", 0xEA, 2, 16, Box::new(load_mem_nn_a)),
-
         Instruction::new("LD BC,nn", 0x01, 2, 12, Box::new(load_bc_nn)),
         Instruction::new("LD DE,nn", 0x11, 2, 12, Box::new(load_de_nn)),
         Instruction::new("LD HL,nn", 0x21, 2, 12, Box::new(load_hl_nn)),
         Instruction::new("LD SP,nn", 0x31, 2, 12, Box::new(load_sp_nn)),
-
-        Instruction::new("LD (HL),A; DEC HL", 0x32, 0, 8, Box::new(load_mem_hl_with_a_dec_hl)),
-        Instruction::new("LD (HL),A; INC HL", 0x22, 0, 8, Box::new(load_mem_hl_with_a_inc_hl)),
-        Instruction::new("LD A,(HL); INC HL", 0x2A, 0, 8, Box::new(load_a_with_mem_hl_inc_hl)),
-        Instruction::new("LD A,(HL); DEC HL", 0x3A, 0, 8, Box::new(load_a_with_mem_hl_dec_hl)),
-
+        Instruction::new(
+            "LD (HL),A; DEC HL",
+            0x32,
+            0,
+            8,
+            Box::new(load_mem_hl_with_a_dec_hl),
+        ),
+        Instruction::new(
+            "LD (HL),A; INC HL",
+            0x22,
+            0,
+            8,
+            Box::new(load_mem_hl_with_a_inc_hl),
+        ),
+        Instruction::new(
+            "LD A,(HL); INC HL",
+            0x2A,
+            0,
+            8,
+            Box::new(load_a_with_mem_hl_inc_hl),
+        ),
+        Instruction::new(
+            "LD A,(HL); DEC HL",
+            0x3A,
+            0,
+            8,
+            Box::new(load_a_with_mem_hl_dec_hl),
+        ),
         Instruction::new("LD SP,HL", 0xF9, 0, 8, Box::new(load_sp_hl)),
-        Instruction::new("LD HL,SP+n", 0xF8, 1, 12, Box::new(load_hl_sp_plus_signed_n)),
-
-        Instruction::new("LD (0xFF00 + n),A", 0xE0, 1, 12, Box::new(load_ff00_plus_n_with_a)),
-        Instruction::new("LD A,(0xFF00 + n)", 0xF0, 1, 12, Box::new(load_a_with_ff00_plus_n)),
-        Instruction::new("LD (0xFF00 + C),A", 0xE2, 0, 8, Box::new(load_ff00_plus_c_with_a)),
-        Instruction::new("LD A,(0xFF00 + C)", 0xF2, 0, 8, Box::new(load_a_with_ff00_plus_c)),
+        Instruction::new(
+            "LD HL,SP+n",
+            0xF8,
+            1,
+            12,
+            Box::new(load_hl_sp_plus_signed_n),
+        ),
+        Instruction::new(
+            "LD (0xFF00 + n),A",
+            0xE0,
+            1,
+            12,
+            Box::new(load_ff00_plus_n_with_a),
+        ),
+        Instruction::new(
+            "LD A,(0xFF00 + n)",
+            0xF0,
+            1,
+            12,
+            Box::new(load_a_with_ff00_plus_n),
+        ),
+        Instruction::new(
+            "LD (0xFF00 + C),A",
+            0xE2,
+            0,
+            8,
+            Box::new(load_ff00_plus_c_with_a),
+        ),
+        Instruction::new(
+            "LD A,(0xFF00 + C)",
+            0xF2,
+            0,
+            8,
+            Box::new(load_a_with_ff00_plus_c),
+        ),
         Instruction::new("LD (nn),SP", 0x08, 2, 20, Box::new(load_mem_nn_sp)),
-
         Instruction::new("PUSH AF", 0xF5, 0, 16, Box::new(push_af)),
         Instruction::new("PUSH BC", 0xC5, 0, 16, Box::new(push_bc)),
         Instruction::new("PUSH DE", 0xD5, 0, 16, Box::new(push_de)),
         Instruction::new("PUSH HL", 0xE5, 0, 16, Box::new(push_hl)),
-
         Instruction::new("POP AF", 0xF1, 0, 12, Box::new(pop_af)),
         Instruction::new("POP BC", 0xC1, 0, 12, Box::new(pop_bc)),
         Instruction::new("POP DE", 0xD1, 0, 12, Box::new(pop_de)),
         Instruction::new("POP HL", 0xE1, 0, 12, Box::new(pop_hl)),
-
         Instruction::new("AND A", 0xA7, 0, 4, Box::new(and_a)),
         Instruction::new("AND B", 0xA0, 0, 4, Box::new(and_b)),
         Instruction::new("AND C", 0xA1, 0, 4, Box::new(and_c)),
@@ -151,7 +202,6 @@ pub fn get_instruction_set() -> Vec<Instruction> {
         Instruction::new("AND L", 0xA5, 0, 4, Box::new(and_l)),
         Instruction::new("AND (HL)", 0xA6, 0, 8, Box::new(and_mem_hl)),
         Instruction::new("AND n", 0xE6, 1, 8, Box::new(and_n)),
-
         Instruction::new("OR A", 0xB7, 0, 4, Box::new(or_a)),
         Instruction::new("OR B", 0xB0, 0, 4, Box::new(or_b)),
         Instruction::new("OR C", 0xB1, 0, 4, Box::new(or_c)),
@@ -161,7 +211,6 @@ pub fn get_instruction_set() -> Vec<Instruction> {
         Instruction::new("OR L", 0xB5, 0, 4, Box::new(or_l)),
         Instruction::new("OR (HL)", 0xB6, 0, 8, Box::new(or_mem_hl)),
         Instruction::new("OR n", 0xF6, 1, 8, Box::new(or_n)),
-
         Instruction::new("XOR A", 0xAF, 0, 4, Box::new(xor_a)),
         Instruction::new("XOR B", 0xA8, 0, 4, Box::new(xor_b)),
         Instruction::new("XOR C", 0xA9, 0, 4, Box::new(xor_c)),
@@ -171,7 +220,6 @@ pub fn get_instruction_set() -> Vec<Instruction> {
         Instruction::new("XOR L", 0xAD, 0, 4, Box::new(xor_l)),
         Instruction::new("XOR (HL)", 0xAE, 0, 8, Box::new(xor_mem_hl)),
         Instruction::new("XOR n", 0xEE, 1, 8, Box::new(xor_n)),
-
         Instruction::new("INC A", 0x3C, 0, 4, Box::new(increment_a)),
         Instruction::new("INC B", 0x04, 0, 4, Box::new(increment_b)),
         Instruction::new("INC C", 0x0C, 0, 4, Box::new(increment_c)),
@@ -184,7 +232,6 @@ pub fn get_instruction_set() -> Vec<Instruction> {
         Instruction::new("INC HL", 0x23, 0, 8, Box::new(increment_hl)),
         Instruction::new("INC SP", 0x33, 0, 8, Box::new(increment_sp)),
         Instruction::new("INC (HL)", 0x34, 0, 12, Box::new(increment_mem_hl)),
-
         Instruction::new("DEC A", 0x3D, 0, 4, Box::new(decrement_a)),
         Instruction::new("DEC B", 0x05, 0, 4, Box::new(decrement_b)),
         Instruction::new("DEC C", 0x0D, 0, 4, Box::new(decrement_c)),
@@ -197,7 +244,6 @@ pub fn get_instruction_set() -> Vec<Instruction> {
         Instruction::new("DEC HL", 0x2B, 0, 8, Box::new(decrement_hl)),
         Instruction::new("DEC SP", 0x3B, 0, 8, Box::new(decrement_sp)),
         Instruction::new("DEC (HL)", 0x35, 0, 12, Box::new(decrement_mem_hl)),
-
         Instruction::new("ADD A", 0x87, 0, 4, Box::new(add_a)),
         Instruction::new("ADD B", 0x80, 0, 4, Box::new(add_b)),
         Instruction::new("ADD C", 0x81, 0, 4, Box::new(add_c)),
@@ -212,7 +258,6 @@ pub fn get_instruction_set() -> Vec<Instruction> {
         Instruction::new("ADD HL,HL", 0x29, 0, 8, Box::new(add_hl_hl)),
         Instruction::new("ADD HL,SP", 0x39, 0, 8, Box::new(add_hl_sp)),
         Instruction::new("ADD SP,n", 0xE8, 1, 16, Box::new(add_sp_signed_n)),
-
         Instruction::new("ADC A,A", 0x8F, 0, 4, Box::new(add_a_with_carry)),
         Instruction::new("ADC A,B", 0x88, 0, 4, Box::new(add_b_with_carry)),
         Instruction::new("ADC A,C", 0x89, 0, 4, Box::new(add_c_with_carry)),
@@ -222,7 +267,6 @@ pub fn get_instruction_set() -> Vec<Instruction> {
         Instruction::new("ADC A,L", 0x8D, 0, 4, Box::new(add_l_with_carry)),
         Instruction::new("ADC A,(HL)", 0x8E, 0, 8, Box::new(add_mem_hl_with_carry)),
         Instruction::new("ADC A,n", 0xCE, 1, 8, Box::new(add_n_with_carry)),
-
         Instruction::new("SUB A", 0x97, 0, 4, Box::new(subtract_a)),
         Instruction::new("SUB B", 0x90, 0, 4, Box::new(subtract_b)),
         Instruction::new("SUB C", 0x91, 0, 4, Box::new(subtract_c)),
@@ -232,7 +276,6 @@ pub fn get_instruction_set() -> Vec<Instruction> {
         Instruction::new("SUB L", 0x95, 0, 4, Box::new(subtract_l)),
         Instruction::new("SUB (HL)", 0x96, 0, 8, Box::new(subtract_mem_hl)),
         Instruction::new("SUB n", 0xD6, 1, 8, Box::new(subtract_n)),
-
         Instruction::new("SBC A", 0x9F, 0, 4, Box::new(subtract_a_with_carry)),
         Instruction::new("SBC B", 0x98, 0, 4, Box::new(subtract_b_with_carry)),
         Instruction::new("SBC C", 0x99, 0, 4, Box::new(subtract_c_with_carry)),
@@ -242,7 +285,6 @@ pub fn get_instruction_set() -> Vec<Instruction> {
         Instruction::new("SBC L", 0x9D, 0, 4, Box::new(subtract_l_with_carry)),
         Instruction::new("SBC (HL)", 0x9E, 0, 8, Box::new(subtract_mem_hl_with_carry)),
         Instruction::new("SBC n", 0xDE, 1, 8, Box::new(subtract_n_with_carry)),
-
         Instruction::new("CP A", 0xBF, 0, 4, Box::new(compare_a)),
         Instruction::new("CP B", 0xB8, 0, 4, Box::new(compare_b)),
         Instruction::new("CP C", 0xB9, 0, 4, Box::new(compare_c)),
@@ -252,7 +294,6 @@ pub fn get_instruction_set() -> Vec<Instruction> {
         Instruction::new("CP L", 0xBD, 0, 4, Box::new(compare_l)),
         Instruction::new("CP (HL)", 0xBE, 0, 8, Box::new(compare_mem_hl)),
         Instruction::new("CP n", 0xFE, 1, 8, Box::new(compare_n)),
-
         Instruction::new("JP nn", 0xC3, 2, 12, Box::new(jump_immediate)),
         Instruction::new("JP NZ,nn", 0xC2, 2, 12, Box::new(jump_not_z_flag)),
         Instruction::new("JP Z,nn", 0xCA, 2, 12, Box::new(jump_z_flag)),
@@ -264,33 +305,27 @@ pub fn get_instruction_set() -> Vec<Instruction> {
         Instruction::new("JR NC,n", 0x30, 1, 8, Box::new(jump_not_c_flag_pc_plus)),
         Instruction::new("JR C,n", 0x38, 1, 8, Box::new(jump_c_flag_pc_plus)),
         Instruction::new("JP (HL)", 0xE9, 0, 4, Box::new(jump_hl)),
-
         Instruction::new("CALL nn", 0xCD, 2, 12, Box::new(call_nn)),
         Instruction::new("CALL NZ,nn", 0xC4, 2, 12, Box::new(call_if_not_zero)),
         Instruction::new("CALL Z,nn", 0xCC, 2, 12, Box::new(call_if_zero)),
         Instruction::new("CALL NC,nn", 0xD4, 2, 12, Box::new(call_if_not_carry)),
         Instruction::new("CALL C,nn", 0xDC, 2, 12, Box::new(call_if_carry)),
-
         Instruction::new("RET", 0xC9, 0, 8, Box::new(sub_return)),
         Instruction::new("RET NZ", 0xC0, 0, 8, Box::new(sub_return_if_not_z)),
         Instruction::new("RET Z", 0xC8, 0, 8, Box::new(sub_return_if_z)),
         Instruction::new("RET NC", 0xD0, 0, 8, Box::new(sub_return_if_not_c)),
         Instruction::new("RET C", 0xD8, 0, 8, Box::new(sub_return_if_c)),
         Instruction::new("RETI", 0xD9, 0, 8, Box::new(sub_return_enable_interrupts)),
-
         Instruction::new("DI", 0xF3, 0, 4, Box::new(disable_interrupts)),
         Instruction::new("EI", 0xFB, 0, 4, Box::new(enable_interrupts)),
-
         Instruction::new("RLCA", 0x07, 0, 4, Box::new(rotate_left_a)),
         Instruction::new("RLA", 0x17, 0, 4, Box::new(rotate_left_a_through)),
         Instruction::new("RRCA", 0x0F, 0, 4, Box::new(rotate_right_a)),
         Instruction::new("RRA", 0x1F, 0, 4, Box::new(rotate_right_a_through)),
-
         Instruction::new("DAA", 0x27, 0, 4, Box::new(decimal_adjust_a)),
         Instruction::new("CPL", 0x2F, 0, 4, Box::new(complement_a)),
         Instruction::new("CCF", 0x3F, 0, 4, Box::new(complement_carry)),
         Instruction::new("SCF", 0x37, 0, 4, Box::new(set_carry)),
-
         Instruction::new("RST 0x00", 0xC7, 0, 32, Box::new(restart_00)),
         Instruction::new("RST 0x08", 0xCF, 0, 32, Box::new(restart_08)),
         Instruction::new("RST 0x10", 0xD7, 0, 32, Box::new(restart_10)),
@@ -302,9 +337,7 @@ pub fn get_instruction_set() -> Vec<Instruction> {
     ]
 }
 
-fn nop(_: &mut GameBoy, _: u8, _: u8) {
-
-}
+fn nop(_: &mut GameBoy, _: u8, _: u8) {}
 
 fn halt(gb: &mut GameBoy, _: u8, _: u8) {
     gb.cpu.is_halted = true;
@@ -494,7 +527,11 @@ fn pop_hl(gb: &mut GameBoy, _: u8, _: u8) {
 
 fn add(gb: &mut GameBoy, reg_val: u8, value: u8, with_carry: bool) -> u8 {
     let reg_val = reg_val as u16;
-    let extra = if with_carry && gb.cpu.flag.carry { 1 } else { 0 };
+    let extra = if with_carry && gb.cpu.flag.carry {
+        1
+    } else {
+        0
+    };
     let mut result = reg_val + (value as u16) + extra;
     if result > 255 {
         result -= 256;
@@ -503,7 +540,8 @@ fn add(gb: &mut GameBoy, reg_val: u8, value: u8, with_carry: bool) -> u8 {
         gb.cpu.flag.carry = false;
     }
 
-    gb.cpu.flag.half_carry = (((reg_val as u8) & 0x0F) + (value & 0x0F) + (extra as u8)) & 0x10 == 0x10;
+    gb.cpu.flag.half_carry =
+        (((reg_val as u8) & 0x0F) + (value & 0x0F) + (extra as u8)) & 0x10 == 0x10;
     gb.cpu.flag.zero = result == 0;
     gb.cpu.flag.subtract = false;
     result as u8
@@ -526,7 +564,11 @@ fn add_word(gb: &mut GameBoy, value: u16, arg: u16) -> u16 {
 
 fn subtract(gb: &mut GameBoy, reg_val: u8, value: u8, with_carry: bool) -> u8 {
     let reg_val = reg_val as i16;
-    let extra: i16 = if with_carry && gb.cpu.flag.carry { 1 } else { 0 };
+    let extra: i16 = if with_carry && gb.cpu.flag.carry {
+        1
+    } else {
+        0
+    };
     let value = value as i16;
     let mut result = reg_val - value - extra;
     if result < 0 {
@@ -542,7 +584,7 @@ fn subtract(gb: &mut GameBoy, reg_val: u8, value: u8, with_carry: bool) -> u8 {
     result as u8
 }
 
-fn decrement(gb: &mut GameBoy, reg_val: u8) -> u8{
+fn decrement(gb: &mut GameBoy, reg_val: u8) -> u8 {
     //Decrement does not affect carry flag
     let carry = gb.cpu.flag.carry;
     let result = subtract(gb, reg_val, 1, false);
@@ -550,7 +592,7 @@ fn decrement(gb: &mut GameBoy, reg_val: u8) -> u8{
     result
 }
 
-fn increment(gb: &mut GameBoy, reg_val: u8) -> u8{
+fn increment(gb: &mut GameBoy, reg_val: u8) -> u8 {
     //Increment does not affect carry flag
     let carry = gb.cpu.flag.carry;
     let result = add(gb, reg_val, 1, false);
@@ -634,7 +676,8 @@ fn increment_de(gb: &mut GameBoy, _: u8, _: u8) {
         gb.cpu.de = 0;
     } else {
         gb.cpu.de += 1;
-    }}
+    }
+}
 
 fn increment_hl(gb: &mut GameBoy, _: u8, _: u8) {
     if gb.cpu.hl == 0xFFFF {
@@ -1054,17 +1097,15 @@ fn load_8(gb: &mut GameBoy, dest: Reg8, val: u8) {
     set_reg8(gb, dest, val);
 }
 
-fn load_x_y(dest: Reg8, val_reg: Reg8) -> Box<Fn(&mut GameBoy, u8, u8)> {
+fn load_x_y(dest: Reg8, val_reg: Reg8) -> Box<dyn Fn(&mut GameBoy, u8, u8)> {
     Box::new(move |gb, _, _| {
         let val = get_reg8(gb, val_reg);
         load_8(gb, dest, val)
     })
 }
 
-fn load_x_imm(dest: Reg8) -> Box<Fn(&mut GameBoy, u8, u8)> {
-    Box::new(move |gb, val, _| {
-        load_8(gb, dest, val)
-    })
+fn load_x_imm(dest: Reg8) -> Box<dyn Fn(&mut GameBoy, u8, u8)> {
+    Box::new(move |gb, val, _| load_8(gb, dest, val))
 }
 
 fn load_mem_bc_a(gb: &mut GameBoy, _: u8, _: u8) {
@@ -1456,3 +1497,4 @@ fn decimal_adjust_a(gb: &mut GameBoy, _: u8, _: u8) {
     gb.cpu.set_a(a as u8);
     gb.cpu.flag.zero = a == 0;
 }
+

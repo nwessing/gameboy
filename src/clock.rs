@@ -1,7 +1,7 @@
-use time;
 use game_boy::GameBoy;
+use time;
 
-const CLOCK_SPEED: u64 = 4_194_304; 
+const CLOCK_SPEED: u64 = 4_194_304;
 const DIVIDER_TICK: u64 = CLOCK_SPEED / 16_384;
 
 const CLOCK0_TICK: u64 = CLOCK_SPEED / 4096;
@@ -19,14 +19,14 @@ const INTERRUPT_FLAG_REG: u16 = 0xFF0F;
 
 pub struct Clock {
     ticks: u64,
-    last_time: u64
+    last_time: u64,
 }
 
 impl Clock {
     pub fn new() -> Clock {
         Clock {
             ticks: 0,
-            last_time: 0
+            last_time: 0,
         }
     }
 
@@ -39,7 +39,8 @@ impl Clock {
 
         if self.ticks / DIVIDER_TICK < new_ticks / DIVIDER_TICK {
             let divider_val = gb.memory.get_byte(DIVIDER_REG);
-            gb.memory.set_owned_byte(DIVIDER_REG, divider_val.wrapping_add(1));
+            gb.memory
+                .set_owned_byte(DIVIDER_REG, divider_val.wrapping_add(1));
         }
 
         let timer_control = gb.memory.get_byte(TIMER_CONTROL_REG);
@@ -50,14 +51,15 @@ impl Clock {
                 0b01 => CLOCK1_TICK,
                 0b10 => CLOCK2_TICK,
                 0b11 => CLOCK3_TICK,
-                _ => panic!("Timer control clock mode decoded incorrectly")
+                _ => panic!("Timer control clock mode decoded incorrectly"),
             };
 
             let counter = gb.memory.get_byte(TIMER_COUNTER_REG);
             if self.ticks / rate < new_ticks / rate {
                 let result = if counter == 0xFF {
                     let int_flags = gb.memory.get_byte(INTERRUPT_FLAG_REG);
-                    gb.memory.set_owned_byte(INTERRUPT_FLAG_REG, int_flags | 0b100);
+                    gb.memory
+                        .set_owned_byte(INTERRUPT_FLAG_REG, int_flags | 0b100);
                     gb.memory.get_byte(TIMER_MODULO_REG)
                 } else {
                     counter + 1
@@ -69,3 +71,4 @@ impl Clock {
         self.ticks += num_cycle as u64;
     }
 }
+

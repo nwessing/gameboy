@@ -1,35 +1,35 @@
-mod instructions;
 mod cb_instructions;
+mod clock;
+mod controller;
 mod cpu;
 mod game_boy;
-mod util;
-mod memory;
-mod mbc1;
-mod math;
 mod gpu;
-mod clock;
+mod instructions;
 mod interrupts;
-mod controller;
+mod math;
+mod mbc1;
+mod memory;
 mod tests;
+mod util;
 
 extern crate sdl2;
 extern crate time;
 
-use std::io;
-use std::io::prelude::*;
-use std::fs;
-use std::env;
-use std::path::Path;
-use fs::File;
-use game_boy::GameBoy;
 use controller::Controller;
 use cpu::InstructionSet;
+use fs::File;
+use game_boy::GameBoy;
+use std::env;
+use std::fs;
+use std::io;
+use std::io::prelude::*;
+use std::path::Path;
 
-use sdl2::render::WindowCanvas;
 use sdl2::event::Event;
-use sdl2::EventPump;
 use sdl2::keyboard::Keycode;
 use sdl2::pixels::PixelFormatEnum;
+use sdl2::render::WindowCanvas;
+use sdl2::EventPump;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -40,7 +40,7 @@ fn main() {
     let game_file_path = Path::new(&args[1]);
 
     let mut gb = GameBoy::new();
-    let skip_boot = false;
+    let skip_boot = true;
     gb.power_on();
 
     if !skip_boot {
@@ -60,21 +60,19 @@ fn main() {
         gb.cpu.pc = 0x100;
     }
 
-    let sdl_context = sdl2::init().unwrap();//.ok_or("Could not create SDL Context.");
+    let sdl_context = sdl2::init().unwrap(); //.ok_or("Could not create SDL Context.");
     let video_subsystem = sdl_context.video().unwrap();
 
-    let window = video_subsystem.window("Gameboy Emulator", 800, 600)
+    let window = video_subsystem
+        .window("Gameboy Emulator", 800, 600)
         .position_centered()
         .resizable()
         .build()
         .unwrap();
 
-    let mut canvas = window.into_canvas()
-        .build()
-        .unwrap();
+    let mut canvas = window.into_canvas().build().unwrap();
 
     let mut event_pump = sdl_context.event_pump().unwrap();
-
 
     clock.start();
     loop {
@@ -123,8 +121,12 @@ fn execute_next_instruction(mut gb: &mut GameBoy, instruction_set: &InstructionS
     let instruction = match instruction {
         Option::None => {
             pause();
-            if use_cb { panic!("CB{:02X} instruction not implemented\n{}", opcode, gb.cpu) } else { panic!("{:02X} instruction not implemented\n{}", opcode, gb.cpu) }
-        },
+            if use_cb {
+                panic!("CB{:02X} instruction not implemented\n{}", opcode, gb.cpu)
+            } else {
+                panic!("{:02X} instruction not implemented\n{}", opcode, gb.cpu)
+            }
+        }
         Option::Some(x) => x,
     };
 
@@ -137,7 +139,7 @@ fn execute_next_instruction(mut gb: &mut GameBoy, instruction_set: &InstructionS
 fn load_rom(gb: &mut GameBoy, game_file_path: &Path) {
     let mut game_file = match File::open(game_file_path) {
         Ok(x) => x,
-        Err(x) => panic!("{}", x)
+        Err(x) => panic!("{}", x),
     };
 
     let mut game_buf = Vec::new();
@@ -160,7 +162,7 @@ fn load_external_ram(gb: &mut GameBoy, game_file_path: &Path) {
                 let mut save_buf = Vec::new();
                 game_save_file.read_to_end(&mut save_buf).unwrap();
                 gb.load_save_data(&save_buf);
-            },
+            }
             Err(_) => {}
         };
     }
@@ -171,12 +173,12 @@ fn save_external_ram(gb: &GameBoy, game_file_path: &Path) {
         let game_save_path = game_file_path.with_extension("gbsave");
         let mut save_file = match File::create(game_save_path) {
             Ok(x) => x,
-            Err(x) => panic!("{}", x)
+            Err(x) => panic!("{}", x),
         };
 
         match save_file.write_all(gb.memory.get_external_ram_banks().as_slice()) {
             Ok(x) => x,
-            Err(x) => panic!("{}", x)
+            Err(x) => panic!("{}", x),
         };
     }
 }
@@ -184,21 +186,24 @@ fn save_external_ram(gb: &GameBoy, game_file_path: &Path) {
 fn pause() {
     let mut guess = String::new();
     println!("Paused");
-    io::stdin().read_line(&mut guess)
+    io::stdin()
+        .read_line(&mut guess)
         .ok()
         .expect("Failed to read line");
 }
 
-
-
 fn render_frame(canvas: &mut WindowCanvas, frame_buffer: &[u8; gpu::BUFFER_SIZE]) {
     let texture_creator = canvas.texture_creator();
-    let mut texture = texture_creator.create_texture_streaming(PixelFormatEnum::RGB24, 160, 144).unwrap();
-    texture.with_lock(None, |buffer: &mut [u8], _: usize| {
-        for i in 0..frame_buffer.len() {
-            buffer[i] = frame_buffer[i];
-        }
-    }).unwrap();
+    let mut texture = texture_creator
+        .create_texture_streaming(PixelFormatEnum::RGB24, 160, 144)
+        .unwrap();
+    texture
+        .with_lock(None, |buffer: &mut [u8], _: usize| {
+            for i in 0..frame_buffer.len() {
+                buffer[i] = frame_buffer[i];
+            }
+        })
+        .unwrap();
     canvas.copy(&texture, None, None).unwrap();
     canvas.present();
 }
@@ -206,10 +211,10 @@ fn render_frame(canvas: &mut WindowCanvas, frame_buffer: &[u8; gpu::BUFFER_SIZE]
 pub fn check_input(event_pump: &mut EventPump, gb: &mut GameBoy, controller: &mut Controller) {
     for event in event_pump.poll_iter() {
         match event {
-            Event::Quit {..} => gb.request_exit(),
+            Event::Quit { .. } => gb.request_exit(),
             Event::KeyDown { keycode, .. } => handle_input(controller, true, keycode),
             Event::KeyUp { keycode, .. } => handle_input(controller, false, keycode),
-            _ => ()
+            _ => (),
         }
     }
 }
@@ -217,7 +222,7 @@ pub fn check_input(event_pump: &mut EventPump, gb: &mut GameBoy, controller: &mu
 fn handle_input(controller: &mut Controller, pressed: bool, key: Option<Keycode>) {
     let keycode = match key {
         Some(keycode) => keycode,
-        None => return
+        None => return,
     };
 
     match keycode {
@@ -229,6 +234,7 @@ fn handle_input(controller: &mut Controller, pressed: bool, key: Option<Keycode>
         Keycode::K => controller.a_changed(pressed),
         Keycode::J => controller.start_changed(pressed),
         Keycode::H => controller.select_changed(pressed),
-        _ => ()
+        _ => (),
     }
 }
+

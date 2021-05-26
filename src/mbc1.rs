@@ -1,6 +1,6 @@
 enum BankingMode {
     Rom,
-    Ram
+    Ram,
 }
 
 const ROM_BANK_SELECT_LOWER_BIT_MASK: u8 = 0b0001_1111;
@@ -13,7 +13,7 @@ pub struct MemoryBankController1 {
     selected_ram_bank: u8,
     banking_mode: BankingMode,
     rom_banks: Vec<Vec<u8>>,
-    ram_banks: Vec<Vec<u8>>
+    ram_banks: Vec<Vec<u8>>,
 }
 
 impl MemoryBankController1 {
@@ -25,7 +25,7 @@ impl MemoryBankController1 {
             selected_ram_bank: 0,
             banking_mode: BankingMode::Rom,
             rom_banks: vec![],
-            ram_banks: vec![]
+            ram_banks: vec![],
         }
     }
 
@@ -39,7 +39,7 @@ impl MemoryBankController1 {
             4 => 32,
             5 => 64,
             6 => 128,
-            x => panic!("ROM specified incorrect size at 0x148: {}", x)
+            x => panic!("ROM specified incorrect size at 0x148: {}", x),
         };
 
         let ram_size = rom_buf[0x149];
@@ -49,7 +49,7 @@ impl MemoryBankController1 {
             2 => 1,
             3 => 4,
             4 => 16,
-            x => panic!("ROM specified incorrect size for external RAM: {}", x)
+            x => panic!("ROM specified incorrect size for external RAM: {}", x),
         };
 
         self.use_battery = mbc_type == 0x03;
@@ -68,26 +68,31 @@ impl MemoryBankController1 {
         }
 
         for _i_bank in 0..num_ram_banks {
-            self.ram_banks.push(vec![0; if ram_size == 1 { 0x800 } else { 0x2000 }]);
+            self.ram_banks
+                .push(vec![0; if ram_size == 1 { 0x800 } else { 0x2000 }]);
         }
     }
 
     pub fn get_byte(&self, address: u16) -> Option<u8> {
         if address >= 0x4000 && address < 0x8000 {
-            return Some(self.rom_banks[(self.selected_rom_bank - 1) as usize][(address - 0x4000) as usize]);
+            return Some(
+                self.rom_banks[(self.selected_rom_bank - 1) as usize][(address - 0x4000) as usize],
+            );
         }
 
         if address >= 0xA000 && address < 0xC000 {
-            return Some(self.ram_banks[self.selected_ram_bank as usize][(address - 0xA000) as usize]);
+            return Some(
+                self.ram_banks[self.selected_ram_bank as usize][(address - 0xA000) as usize],
+            );
         }
 
         None
     }
 
-    pub fn set_byte(&mut self, address: u16, b: u8) -> bool{
+    pub fn set_byte(&mut self, address: u16, b: u8) -> bool {
         if address >= 0x2000 && address < 0x4000 {
-            let requested_bank = (b & ROM_BANK_SELECT_LOWER_BIT_MASK) |
-                (self.selected_rom_bank & ROM_BANK_SELECT_UPPER_BIT_MASK);
+            let requested_bank = (b & ROM_BANK_SELECT_LOWER_BIT_MASK)
+                | (self.selected_rom_bank & ROM_BANK_SELECT_UPPER_BIT_MASK);
             self.selected_rom_bank = map_to_rom_bank(requested_bank);
             // println!("Selected ROM bank {}", self.selected_rom_bank);
             return true;
@@ -103,11 +108,11 @@ impl MemoryBankController1 {
             match self.banking_mode {
                 BankingMode::Ram => {
                     self.selected_ram_bank = b & 0b11;
-                },
+                }
                 BankingMode::Rom => {
                     println!("Selecting upper bits of ROM: {:02X}", b);
-                    let requested_bank = (self.selected_rom_bank & ROM_BANK_SELECT_LOWER_BIT_MASK) |
-                        ((b << 5) & ROM_BANK_SELECT_UPPER_BIT_MASK);
+                    let requested_bank = (self.selected_rom_bank & ROM_BANK_SELECT_LOWER_BIT_MASK)
+                        | ((b << 5) & ROM_BANK_SELECT_UPPER_BIT_MASK);
                     self.selected_rom_bank = map_to_rom_bank(requested_bank);
                 }
             }
@@ -157,6 +162,7 @@ fn map_to_rom_bank(requested_bank: u8) -> u8 {
         0x20 => 0x21,
         0x40 => 0x41,
         0x60 => 0x61,
-        x => x
+        x => x,
     }
 }
+

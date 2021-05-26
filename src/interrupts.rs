@@ -51,6 +51,7 @@ fn get_interrupt_handler_addr(interrupt: u8) -> u16 {
         TIMER => 0x50,
         SERIAL => 0x58,
         JOYPAD => 0x60,
-        _ => panic!("Invalid interrupt")
+        _ => panic!("Invalid interrupt"),
     }
 }
+

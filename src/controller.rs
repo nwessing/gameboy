@@ -4,7 +4,7 @@ const JOYPAD_REG_ADDR: u16 = 0xFF00;
 
 pub struct Controller {
     direction_states: u8,
-    button_states: u8
+    button_states: u8,
 }
 
 fn set_bit(val: u8, mask: u8, set: bool) -> u8 {
@@ -19,7 +19,7 @@ impl Controller {
     pub fn new() -> Controller {
         Controller {
             direction_states: 0x0F,
-            button_states: 0x0F
+            button_states: 0x0F,
         }
     }
 
@@ -58,11 +58,14 @@ impl Controller {
     pub fn update_joypad_register(&self, gb: &mut GameBoy) {
         let joypad_select = gb.memory.get_byte(JOYPAD_REG_ADDR) & 0xF0;
         if joypad_select & 0x20 == 0x00 {
-            gb.memory.set_byte(JOYPAD_REG_ADDR, joypad_select | self.button_states);
+            gb.memory
+                .set_byte(JOYPAD_REG_ADDR, joypad_select | self.button_states);
         }
 
         if joypad_select & 0x10 == 0x00 {
-            gb.memory.set_byte(JOYPAD_REG_ADDR, joypad_select | self.direction_states);
+            gb.memory
+                .set_byte(JOYPAD_REG_ADDR, joypad_select | self.direction_states);
         }
     }
 }
+

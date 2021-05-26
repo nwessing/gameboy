@@ -1,7 +1,7 @@
 use game_boy::GameBoy;
 
 #[derive(Copy, Clone)]
-pub enum Reg8{
+pub enum Reg8 {
     A,
     B,
     C,
@@ -9,7 +9,7 @@ pub enum Reg8{
     E,
     H,
     L,
-    MemHl
+    MemHl,
 }
 
 pub fn get_reg8(gb: &GameBoy, reg: Reg8) -> u8 {
@@ -74,4 +74,3 @@ pub fn push_word(gb: &mut GameBoy, value: u16) {
     gb.cpu.sp = gb.cpu.sp.wrapping_sub(2);
     gb.memory.set_word(gb.cpu.sp, value);
 }
-

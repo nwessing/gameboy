@@ -1,13 +1,13 @@
 #[allow(unused_imports)]
-use instructions;
+use cb_instructions;
 #[allow(unused_imports)]
 use cpu::InstructionSet;
 #[allow(unused_imports)]
-use cb_instructions;
+use game_boy::GameBoy;
+#[allow(unused_imports)]
+use instructions;
 #[allow(unused_imports)]
 use util;
-#[allow(unused_imports)]
-use game_boy::GameBoy;
 
 #[test]
 fn test() {
@@ -35,7 +35,7 @@ fn jump_pc_plus_bytes() {
     let is = InstructionSet::new();
     let ins = match is.get_instruction(0x18) {
         Some(x) => x,
-        None => panic!("No instruction found")
+        None => panic!("No instruction found"),
     };
     let mut gb = GameBoy::new();
 
@@ -62,11 +62,11 @@ fn stack_tests() {
 
     let push_hl = match is.get_instruction(0xE5) {
         Some(x) => x,
-        None => panic!("No instruction found")
+        None => panic!("No instruction found"),
     };
     let pop_hl = match is.get_instruction(0xE1) {
         Some(x) => x,
-        None => panic!("No instruction found")
+        None => panic!("No instruction found"),
     };
 
     gb.cpu.hl = 0x1234;
@@ -78,7 +78,7 @@ fn stack_tests() {
 
     (pop_hl.exec)(&mut gb, 0, 0);
     assert_eq!(0x5678, gb.cpu.hl);
-    (pop_hl.exec)(&mut gb, 0, 0);    
+    (pop_hl.exec)(&mut gb, 0, 0);
     assert_eq!(0x1234, gb.cpu.hl);
 }
 
@@ -89,7 +89,7 @@ fn adding_usign_and_sign() {
 
     let jump_plus_signed = match is.get_instruction(0x18) {
         Some(x) => x,
-        None => panic!("No instruction found")
+        None => panic!("No instruction found"),
     };
     gb.cpu.pc = 0xCBB0;
     (jump_plus_signed.exec)(&mut gb, 0xFE, 0xC9);

@@ -1,13 +1,12 @@
+use mbc1::MemoryBankController1;
+use util::concat_bytes;
 use util::get_lower;
 use util::get_upper;
-use util::concat_bytes;
-use mbc1::MemoryBankController1;
-
 
 pub struct Memory {
     mem: Vec<u8>,
     boot_rom: Vec<u8>,
-    mbc1: Option<MemoryBankController1>
+    mbc1: Option<MemoryBankController1>,
 }
 
 impl Memory {
@@ -15,7 +14,7 @@ impl Memory {
         Memory {
             mem: vec![0; 0x10000],
             boot_rom: vec![0; 0x100],
-            mbc1: None
+            mbc1: None,
         }
     }
 
@@ -80,21 +79,21 @@ impl Memory {
     pub fn load_external_ram(&mut self, save_buf: &Vec<u8>) {
         match self.mbc1 {
             Some(ref mut mbc1) => mbc1.load_external_ram(save_buf),
-            None => panic!("No external RAM banks")
+            None => panic!("No external RAM banks"),
         };
     }
 
     pub fn use_battery(&self) -> bool {
         match self.mbc1 {
             Some(ref mbc1) => mbc1.use_battery,
-            None => false
+            None => false,
         }
     }
 
     pub fn get_external_ram_banks(&self) -> Vec<u8> {
         match self.mbc1 {
             Some(ref mbc1) => mbc1.get_external_ram_banks(),
-            None => panic!("No external RAM banks")
+            None => panic!("No external RAM banks"),
         }
     }
 
@@ -104,13 +103,13 @@ impl Memory {
         }
 
         match self.mbc1 {
-            Some(ref mbc1) => {
-                match mbc1.get_byte(address) {
-                    Some(x) => { return x; },
-                    None => ()
+            Some(ref mbc1) => match mbc1.get_byte(address) {
+                Some(x) => {
+                    return x;
                 }
+                None => (),
             },
-            None => ()
+            None => (),
         }
 
         if address >= 0xE000 && address < 0xFE00 {
@@ -134,8 +133,8 @@ impl Memory {
                 if mbc1.set_byte(address, b) {
                     return;
                 }
-            },
-            None => ()
+            }
+            None => (),
         }
 
         // blarrg's test roms store whether the machine is color or not at D800
@@ -203,7 +202,8 @@ impl Memory {
         if address == 0xFF46 {
             // OAM DMA transfer
             for trans_addr in 0x00..0xA0 {
-                self.mem[(0xFE00 + (trans_addr as u16)) as usize] = self.mem[concat_bytes(b, trans_addr) as usize];
+                self.mem[(0xFE00 + (trans_addr as u16)) as usize] =
+                    self.mem[concat_bytes(b, trans_addr) as usize];
             }
             // return;
         }
@@ -231,3 +231,4 @@ impl Memory {
         self.set_byte(address + 1, get_upper(word));
     }
 }
+
