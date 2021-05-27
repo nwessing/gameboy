@@ -1,3 +1,4 @@
+pub mod c_bindings;
 pub mod cb_instructions;
 pub mod clock;
 pub mod controller;
@@ -58,9 +59,9 @@ pub struct Framebuffer<'a> {
 }
 
 pub struct InitializationOptions<'a> {
-    pub boot_rom: Option<&'a Vec<u8>>,
-    pub game_rom: &'a Vec<u8>,
-    pub external_ram: Option<&'a Vec<u8>>,
+    pub boot_rom: Option<&'a [u8]>,
+    pub game_rom: &'a [u8],
+    pub external_ram: Option<&'a [u8]>,
     pub debug_mode: bool,
 }
 
@@ -118,7 +119,7 @@ impl System {
 
     /// Continue execution until a new frame is ready
     /// Returns a handle to the framebuffer, or None if the game has exited
-    pub fn run_single_frame(&mut self, events: &Vec<InputEvent>) -> Option<Framebuffer> {
+    pub fn run_single_frame(&mut self, events: &[InputEvent]) -> Option<Framebuffer> {
         loop {
             let cycles_elapsed = self.execute_next_instruction();
 

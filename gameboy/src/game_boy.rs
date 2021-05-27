@@ -21,15 +21,15 @@ impl GameBoy {
         self.memory.power_on();
     }
 
-    pub fn load_boot_rom(&mut self, boot_buf: &Vec<u8>) {
+    pub fn load_boot_rom(&mut self, boot_buf: &[u8]) {
         self.memory.load_boot_rom(boot_buf);
     }
 
-    pub fn load_rom(&mut self, rom_buf: &Vec<u8>) {
+    pub fn load_rom(&mut self, rom_buf: &[u8]) {
         self.memory.load_rom(rom_buf);
     }
 
-    pub fn load_save_data(&mut self, save_buf: &Vec<u8>) {
+    pub fn load_save_data(&mut self, save_buf: &[u8]) {
         self.memory.load_external_ram(save_buf);
     }
 

@@ -52,13 +52,13 @@ impl Memory {
         self.mem[0xFFFF] = 0x00;
     }
 
-    pub fn load_boot_rom(&mut self, boot_buf: &Vec<u8>) {
+    pub fn load_boot_rom(&mut self, boot_buf: &[u8]) {
         for i in 0..boot_buf.len() {
             self.boot_rom[i] = boot_buf[i];
         }
     }
 
-    pub fn load_rom(&mut self, rom_buf: &Vec<u8>) {
+    pub fn load_rom(&mut self, rom_buf: &[u8]) {
         let mbc_type = rom_buf[0x147];
         println!("mbc type = {:02X}", mbc_type);
 
@@ -76,7 +76,7 @@ impl Memory {
         }
     }
 
-    pub fn load_external_ram(&mut self, save_buf: &Vec<u8>) {
+    pub fn load_external_ram(&mut self, save_buf: &[u8]) {
         match self.mbc1 {
             Some(ref mut mbc1) => mbc1.load_external_ram(save_buf),
             None => panic!("No external RAM banks"),

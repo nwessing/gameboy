@@ -47,8 +47,8 @@ fn main() {
 
     let options = InitializationOptions {
         game_rom: &game_rom,
-        external_ram: external_ram.as_ref(),
-        boot_rom: boot_rom.as_ref(),
+        external_ram: external_ram.as_deref(),
+        boot_rom: boot_rom.as_deref(),
         debug_mode: false,
     };
     let mut system = System::new(options);

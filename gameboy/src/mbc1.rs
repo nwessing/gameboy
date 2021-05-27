@@ -29,7 +29,7 @@ impl MemoryBankController1 {
         }
     }
 
-    pub fn initialize(&mut self, rom_buf: &Vec<u8>) {
+    pub fn initialize(&mut self, rom_buf: &[u8]) {
         let mbc_type = rom_buf[0x147];
         let num_rom_banks: u32 = match rom_buf[0x148] {
             0 => 2,
@@ -132,7 +132,7 @@ impl MemoryBankController1 {
         false
     }
 
-    pub fn load_external_ram(&mut self, save_buf: &Vec<u8>) {
+    pub fn load_external_ram(&mut self, save_buf: &[u8]) {
         println!("Loading external RAM {0}", save_buf.len());
         let num_ram_banks = self.ram_banks.len();
         for i_bank in 0..num_ram_banks {
@@ -165,4 +165,3 @@ fn map_to_rom_bank(requested_bank: u8) -> u8 {
         x => x,
     }
 }
-

@@ -3,11 +3,15 @@ name = "gameboy"
 version = "0.1.0"
 authors = ["nwessing <nwessing3@gmail.com>"]
 edition = "2018"
+build = "build.rs"
 
 [lib]
 crate-type=["rlib", "cdylib"]
 
 [dependencies]
 time = "*"
+
+[build-dependencies]
+cbindgen = "0.19"
 
 
