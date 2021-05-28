@@ -100,7 +100,9 @@ impl MemoryBankController1 {
 
         if address >= 0xA000 && address < 0xC000 {
             //RAM banks
-            self.ram_banks[self.selected_ram_bank as usize][(address - 0xA000) as usize] = b;
+            if (self.selected_ram_bank as usize) < self.ram_banks.len() {
+                self.ram_banks[self.selected_ram_bank as usize][(address - 0xA000) as usize] = b;
+            }
             return true;
         }
 
