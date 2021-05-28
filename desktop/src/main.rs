@@ -133,13 +133,46 @@ fn render_frame(canvas: &mut WindowCanvas, frame_buffer: &Framebuffer) {
         .unwrap();
     texture
         .with_lock(None, |buffer: &mut [u8], _: usize| {
-            for i in 0..frame_buffer.buffer.len() {
-                buffer[i] = frame_buffer.buffer[i];
+            let mut out_index: usize = 0;
+            for value in frame_buffer.buffer {
+                let color0 = get_color(0b00000011 & (value >> 6));
+                buffer[out_index + 0] = color0.0;
+                buffer[out_index + 1] = color0.1;
+                buffer[out_index + 2] = color0.2;
+                out_index += 3;
+
+                let color1 = get_color(0b00000011 & (value >> 4));
+                buffer[out_index + 0] = color1.0;
+                buffer[out_index + 1] = color1.1;
+                buffer[out_index + 2] = color1.2;
+                out_index += 3;
+
+                let color2 = get_color(0b00000011 & (value >> 2));
+                buffer[out_index + 0] = color2.0;
+                buffer[out_index + 1] = color2.1;
+                buffer[out_index + 2] = color2.2;
+                out_index += 3;
+
+                let color3 = get_color(0b00000011 & (value >> 0));
+                buffer[out_index + 0] = color3.0;
+                buffer[out_index + 1] = color3.1;
+                buffer[out_index + 2] = color3.2;
+                out_index += 3;
             }
         })
         .unwrap();
     canvas.copy(&texture, None, None).unwrap();
     canvas.present();
+}
+
+fn get_color(color_id: u8) -> (u8, u8, u8) {
+    match color_id {
+        3 => (0u8, 0u8, 0u8),
+        2 => (96u8, 96u8, 96u8),
+        1 => (192u8, 192u8, 192u8),
+        0 => (255u8, 255u8, 255u8),
+        _ => (255u8, 0u8, 0u8), //Having Red on the screen should indicate something went wrong.
+    }
 }
 
 fn keycode_to_button(key: Option<Keycode>) -> Option<Button> {

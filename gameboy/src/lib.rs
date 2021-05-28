@@ -154,8 +154,8 @@ impl System {
 
             if frame_end {
                 return Some(Framebuffer {
-                    width: gpu::HORIZONTAL_RES,
-                    height: gpu::VERTICAL_RES,
+                    width: gpu::HORIZONTAL_RES as u32,
+                    height: gpu::VERTICAL_RES as u32,
                     buffer: &self.gpu.window_buf,
                 });
             }

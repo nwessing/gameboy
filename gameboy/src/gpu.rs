@@ -21,10 +21,11 @@ const LCD_STATUS_MODE1_INT: u8 = 0b0001_0000;
 const LCD_STATUS_MODE0_INT: u8 = 0b0000_1000;
 const LCD_STATUS_COINCIDENCE: u8 = 0b0000_0100;
 
-pub const VERTICAL_RES: u32 = 144;
-pub const CHANNELS: u32 = 3;
-pub const HORIZONTAL_RES: u32 = 160;
-pub const BUFFER_SIZE: usize = VERTICAL_RES as usize * HORIZONTAL_RES as usize * CHANNELS as usize;
+pub const VERTICAL_RES: u8 = 144;
+pub const HORIZONTAL_RES: u8 = 160;
+pub const PIXELS_PER_BYTE: u8 = 4;
+pub const BUFFER_SIZE: usize =
+    (VERTICAL_RES as usize * HORIZONTAL_RES as usize) / PIXELS_PER_BYTE as usize;
 
 const MODE0_HBLANK: u8 = 0;
 const MODE1_VBLANK: u8 = 1;
@@ -231,9 +232,6 @@ impl Gpu {
 
         let sprites = get_sprites_in_scan_line(gb, scan_line);
         for x in 0..HORIZONTAL_RES {
-            let index_buffer =
-                ((scan_line as usize * HORIZONTAL_RES as usize) + x as usize) * CHANNELS as usize;
-
             let mut draw_bg = true;
             let window_x = (x as i16) - (window_x_offset(gb) as i16) + 7;
             if window_enabled(gb) && window_y >= 0 && window_x >= 0 {
@@ -243,10 +241,8 @@ impl Gpu {
                     window_x as u16,
                     window_y as u16,
                 );
-                let color = get_color(get_palette_color(bg_palette, window_palette_index));
-                self.window_buf[index_buffer] = color.0;
-                self.window_buf[index_buffer + 1] = color.1;
-                self.window_buf[index_buffer + 2] = color.2;
+                let window_color_id = get_palette_color(bg_palette, window_palette_index);
+                self.set_pixel(x, scan_line, window_color_id);
                 draw_bg = false;
             }
 
@@ -277,10 +273,7 @@ impl Gpu {
                         let sprite_palette = sprite.get_palette(gb);
                         let sprite_color_id =
                             get_palette_color(sprite_palette, sprite_palette_index);
-                        let sprite_color = get_color(sprite_color_id);
-                        self.window_buf[index_buffer] = sprite_color.0;
-                        self.window_buf[index_buffer + 1] = sprite_color.1;
-                        self.window_buf[index_buffer + 2] = sprite_color.2;
+                        self.set_pixel(x, scan_line, sprite_color_id);
                         draw_bg = false;
                         break;
                     }
@@ -288,12 +281,25 @@ impl Gpu {
             }
 
             if draw_bg {
-                let bg_color = get_color(get_palette_color(bg_palette, bg_palette_index));
-                self.window_buf[index_buffer] = bg_color.0;
-                self.window_buf[index_buffer + 1] = bg_color.1;
-                self.window_buf[index_buffer + 2] = bg_color.2;
+                let bg_color_id = get_palette_color(bg_palette, bg_palette_index);
+                self.set_pixel(x, scan_line, bg_color_id);
             }
         }
+    }
+
+    fn set_pixel(&mut self, x: u8, y: u8, color: u8) {
+        let pixel_index = (y as usize * HORIZONTAL_RES as usize) + x as usize;
+        let buffer_index = pixel_index / 4;
+        let (mask, color) = match pixel_index % 4 {
+            0 => (0b11000000u8, color << 6),
+            1 => (0b00110000u8, color << 4),
+            2 => (0b00001100u8, color << 2),
+            3 => (0b00000011u8, color),
+            _ => panic!("NUM % 4 was not in range 0..=3"),
+        };
+
+        let value = &mut self.window_buf[buffer_index];
+        *value = (*value & !mask) | color;
     }
 }
 
@@ -394,16 +400,6 @@ fn get_bg_tile_addr(gb: &GameBoy, tile_index: u8) -> u16 {
     } else {
         let signed_index = tile_index as i8;
         (0x9000i32 + ((signed_index as i32) * 16)) as u16
-    }
-}
-
-fn get_color(color_id: u8) -> (u8, u8, u8) {
-    match color_id {
-        3 => (0u8, 0u8, 0u8),
-        2 => (96u8, 96u8, 96u8),
-        1 => (192u8, 192u8, 192u8),
-        0 => (255u8, 255u8, 255u8),
-        _ => (255u8, 0u8, 0u8), //Having Red on the screen should indicate something went wrong.
     }
 }
 
