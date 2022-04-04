@@ -10,6 +10,9 @@ use sdl2::keyboard::Keycode;
 use sdl2::pixels::PixelFormatEnum;
 use sdl2::render::WindowCanvas;
 
+// #[link(name = "vcruntime")]
+// extern "C" {}
+
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {

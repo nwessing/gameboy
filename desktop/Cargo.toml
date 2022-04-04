@@ -1,7 +1,6 @@
 [package]
 name = "desktop"
 version = "0.1.0"
-build = "build.rs"
 authors = ["Nick Wessing <nwessing3@gmail.com>"]
 edition = "2018"
 
@@ -9,4 +8,7 @@ edition = "2018"
 
 [dependencies]
 gameboy = { path = "../gameboy" }
-sdl2 = "0.31"
+
+[dependencies.sdl2]
+version = "0.35.2"
+features = ["bundled"]
