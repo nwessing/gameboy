@@ -3,7 +3,7 @@ use crate::util::concat_bytes;
 use crate::util::get_lower;
 use crate::util::get_upper;
 
-#[repr(usize)]
+#[repr(u16)]
 pub enum Register {
     SpriteData = 0xFE00,
     Joypad = 0xFF00,
@@ -133,7 +133,7 @@ impl Memory {
     }
 
     pub fn get_register(&self, reg: Register) -> u8 {
-        self.mem[reg as usize]
+        self.get_unchecked(reg as u16)
     }
 
     pub fn get_byte(&self, address: u16) -> u8 {
@@ -152,15 +152,15 @@ impl Memory {
         }
 
         if address >= 0xE000 && address < 0xFE00 {
-            return self.mem[(address - 0x2000) as usize];
+            return self.get_unchecked(address - 0x2000);
         }
 
-        self.mem[address as usize]
+        self.get_unchecked(address)
     }
 
     pub fn read_sprite(&self, sprite_index: u8) -> SpriteData {
         unsafe {
-            let sprite_ref = &self.mem[Register::SpriteData as usize];
+            let sprite_ref = self.mem.get_unchecked(Register::SpriteData as usize);
             let sprites = sprite_ref as *const u8 as *const SpriteData;
             return *sprites.offset(sprite_index as isize);
         }
@@ -264,11 +264,11 @@ impl Memory {
     }
 
     pub fn set_owned_byte(&mut self, address: u16, value: u8) {
-        self.mem[address as usize] = value;
+        self.set_unchecked(address, value);
     }
 
     pub fn set_register(&mut self, register: Register, value: u8) {
-        self.mem[register as usize] = value;
+        self.set_unchecked(register as u16, value);
     }
 
     pub fn get_word(&self, address: u16) -> u16 {
@@ -280,5 +280,13 @@ impl Memory {
     pub fn set_word(&mut self, address: u16, word: u16) {
         self.set_byte(address, get_lower(word));
         self.set_byte(address + 1, get_upper(word));
+    }
+
+    pub fn get_unchecked(&self, address: u16) -> u8 {
+        return unsafe { *self.mem.get_unchecked(address as usize) };
+    }
+
+    pub fn set_unchecked(&mut self, address: u16, value: u8) {
+        unsafe { *self.mem.get_unchecked_mut(address as usize) = value };
     }
 }
