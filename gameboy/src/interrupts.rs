@@ -1,8 +1,6 @@
 use crate::game_boy::GameBoy;
+use crate::memory::Register;
 use crate::util::push_word;
-
-const INTERRUPT_ENABLE_REG: u16 = 0xFFFF;
-const INTERRUPT_FLAG_REG: u16 = 0xFF0F;
 
 const V_BLANK: u8 = 0x01;
 const LCD_STAT: u8 = 0x02;
@@ -11,8 +9,8 @@ const SERIAL: u8 = 0x08;
 const JOYPAD: u8 = 0x10;
 
 pub fn check_interrupts(gb: &mut GameBoy) {
-    let enabled = gb.memory.get_byte(INTERRUPT_ENABLE_REG);
-    let flag = gb.memory.get_byte(INTERRUPT_FLAG_REG);
+    let enabled = gb.memory.get_register(Register::InterruptEnable);
+    let flag = gb.memory.get_register(Register::InterruptFlag);
     let interrupts = enabled & flag;
     if gb.cpu.interrupt_enable_master {
         if interrupts & V_BLANK == V_BLANK {
@@ -38,7 +36,8 @@ pub fn check_interrupts(gb: &mut GameBoy) {
 
 fn handle_interrupt(gb: &mut GameBoy, flags: u8, interrupt: u8) {
     gb.cpu.interrupt_enable_master = false;
-    gb.memory.set_byte(INTERRUPT_FLAG_REG, flags & !interrupt);
+    gb.memory
+        .set_register(Register::InterruptFlag, flags & !interrupt);
     let pc = gb.cpu.pc;
     push_word(gb, pc);
     gb.cpu.pc = get_interrupt_handler_addr(interrupt);

@@ -1,4 +1,5 @@
 use crate::game_boy::GameBoy;
+use crate::memory::Register;
 
 const JOYPAD_REG_ADDR: u16 = 0xFF00;
 
@@ -56,15 +57,15 @@ impl Controller {
     }
 
     pub fn update_joypad_register(&self, gb: &mut GameBoy) {
-        let joypad_select = gb.memory.get_byte(JOYPAD_REG_ADDR) & 0xF0;
+        let joypad_select = gb.memory.get_register(Register::Joypad) & 0xF0;
         if joypad_select & 0x20 == 0x00 {
             gb.memory
-                .set_byte(JOYPAD_REG_ADDR, joypad_select | self.button_states);
+                .set_register(Register::Joypad, joypad_select | self.button_states);
         }
 
         if joypad_select & 0x10 == 0x00 {
             gb.memory
-                .set_byte(JOYPAD_REG_ADDR, joypad_select | self.direction_states);
+                .set_register(Register::Joypad, joypad_select | self.direction_states);
         }
     }
 }

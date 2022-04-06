@@ -3,7 +3,31 @@ use crate::util::concat_bytes;
 use crate::util::get_lower;
 use crate::util::get_upper;
 
-const SPRITE_DATA_REG: u16 = 0xFE00;
+#[repr(usize)]
+pub enum Register {
+    SpriteData = 0xFE00,
+    Joypad = 0xFF00,
+    Divider = 0xFF04,
+    TimerCounter = 0xFF05,
+    TimerModulo = 0xFF06,
+    TimerControl = 0xFF07,
+    InterruptFlag = 0xFF0F,
+
+    LcdControl = 0xFF40,
+    LcdcStatus = 0xFF41,
+    ScrollY = 0xFF42,
+    ScrollX = 0xFF43,
+    LcdcYCoord = 0xFF44,
+    LyCompare = 0xFF45,
+
+    BackgroundPaletteData = 0xFF47,
+    ObjectPalette0Data = 0xFF48,
+    ObjectPalette1Data = 0xFF49,
+    WindowY = 0xFF4A,
+    WindowX = 0xFF4B,
+
+    InterruptEnable = 0xFFFF,
+}
 
 pub struct Memory {
     mem: Vec<u8>,
@@ -108,6 +132,10 @@ impl Memory {
         }
     }
 
+    pub fn get_register(&self, reg: Register) -> u8 {
+        self.mem[reg as usize]
+    }
+
     pub fn get_byte(&self, address: u16) -> u8 {
         if address < 0x100 && self.mem[0xFF50] == 0 {
             return self.boot_rom[address as usize];
@@ -131,9 +159,8 @@ impl Memory {
     }
 
     pub fn read_sprite(&self, sprite_index: u8) -> SpriteData {
-        // assert!(sprite_index < 40);
         unsafe {
-            let sprite_ref = &self.mem[SPRITE_DATA_REG as usize];
+            let sprite_ref = &self.mem[Register::SpriteData as usize];
             let sprites = sprite_ref as *const u8 as *const SpriteData;
             return *sprites.offset(sprite_index as isize);
         }
@@ -238,6 +265,10 @@ impl Memory {
 
     pub fn set_owned_byte(&mut self, address: u16, value: u8) {
         self.mem[address as usize] = value;
+    }
+
+    pub fn set_register(&mut self, register: Register, value: u8) {
+        self.mem[register as usize] = value;
     }
 
     pub fn get_word(&self, address: u16) -> u16 {

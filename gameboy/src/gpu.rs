@@ -1,18 +1,6 @@
 use crate::game_boy::GameBoy;
+use crate::memory::Register;
 
-const LCD_CONTROL_REG: u16 = 0xFF40;
-const LCDC_STATUS_REG: u16 = 0xFF41;
-const SCROLL_Y_REG: u16 = 0xFF42;
-const SCROLL_X_REG: u16 = 0xFF43;
-
-const OBJECT_PALETTE0_DATA_REG: u16 = 0xFF48;
-const OBJECT_PALETTE1_DATA_REG: u16 = 0xFF49;
-
-const WINDOW_Y_REG: u16 = 0xFF4A;
-const WINDOW_X_REG: u16 = 0xFF4B;
-
-const LCDC_Y_COORD: u16 = 0xFF44;
-const LY_COMPARE: u16 = 0xFF45;
 const LCD_STATUS_FLAG_MASK: u8 = 0b1111_1000;
 const LCD_STATUS_COINCIDENCE_INT: u8 = 0b0100_0000;
 const LCD_STATUS_MODE2_INT: u8 = 0b0010_0000;
@@ -155,14 +143,14 @@ impl Gpu {
     /// Updates GPU state and returns whether the frame buffer has a completed
     /// frame
     pub fn update(&mut self, gb: &mut GameBoy, ticks: u8) -> bool {
-        let status = gb.memory.get_byte(LCDC_STATUS_REG);
+        let status = gb.memory.get_register(Register::LcdcStatus);
         let prev_mode = status & 0b0000_0011;
 
         if !display_enabled(gb) {
             if prev_mode != MODE1_VBLANK {
                 // println!("LCD turned off outside of VBLANK, this should not happen.");
             }
-            gb.memory.set_owned_byte(LCDC_Y_COORD, 0);
+            gb.memory.set_register(Register::LcdcYCoord, 0);
             return false;
         }
 
@@ -178,13 +166,13 @@ impl Gpu {
 
         let scan_line_clk = self.frame_step % 456;
 
-        let scan_line = gb.memory.get_byte(LCDC_Y_COORD);
+        let scan_line = gb.memory.get_register(Register::LcdcYCoord);
         let mut next_scan_line = ((self.frame_step + mode0) / 456) as u8;
         if next_scan_line > 153 {
             next_scan_line = 0;
         }
 
-        let mut interrupt_flags = gb.memory.get_byte(0xFF0F);
+        let mut interrupt_flags = gb.memory.get_register(Register::InterruptFlag);
 
         let mode = if self.frame_step >= 65664 {
             MODE1_VBLANK
@@ -205,8 +193,8 @@ impl Gpu {
 
         let mut coincidence_flag = status & LCD_STATUS_COINCIDENCE;
         if scan_line != next_scan_line {
-            gb.memory.set_owned_byte(LCDC_Y_COORD, next_scan_line);
-            let ly_compare = gb.memory.get_byte(LY_COMPARE);
+            gb.memory.set_register(Register::LcdcYCoord, next_scan_line);
+            let ly_compare = gb.memory.get_register(Register::LyCompare);
             if ly_compare == next_scan_line {
                 coincidence_flag = LCD_STATUS_COINCIDENCE;
                 if status & LCD_STATUS_COINCIDENCE_INT == LCD_STATUS_COINCIDENCE_INT {
@@ -234,9 +222,10 @@ impl Gpu {
             interrupt_flags |= 0b10;
         }
 
-        gb.memory.set_owned_byte(0xFF0F, interrupt_flags);
-        gb.memory.set_owned_byte(
-            LCDC_STATUS_REG,
+        gb.memory
+            .set_register(Register::InterruptFlag, interrupt_flags);
+        gb.memory.set_register(
+            Register::LcdcStatus,
             (status & LCD_STATUS_FLAG_MASK) | mode | coincidence_flag,
         );
 
@@ -249,8 +238,8 @@ impl Gpu {
 
         let bg_palette = bg_palette(gb);
 
-        let scroll_y = gb.memory.get_byte(SCROLL_Y_REG) as u16;
-        let scroll_x = gb.memory.get_byte(SCROLL_X_REG) as u16;
+        let scroll_y = gb.memory.get_register(Register::ScrollY) as u16;
+        let scroll_x = gb.memory.get_register(Register::ScrollX) as u16;
 
         let mut y_bg = scroll_y + (scan_line as u16);
         if y_bg > 255 {
@@ -263,8 +252,8 @@ impl Gpu {
         let window_x_offset = window_x_offset(gb) as i16;
         let is_bg_enabled = bg_enabled(gb);
         let bg_map_id = bg_tile_map(gb);
-        let sprite_palette1 = gb.memory.get_byte(OBJECT_PALETTE1_DATA_REG);
-        let sprite_palette0 = gb.memory.get_byte(OBJECT_PALETTE0_DATA_REG);
+        let sprite_palette1 = gb.memory.get_register(Register::ObjectPalette1Data);
+        let sprite_palette0 = gb.memory.get_register(Register::ObjectPalette0Data);
         let tile_addressing_mode = if tile_data(gb) == 1 {
             TileAddressingMode::Unsigned
         } else {
@@ -325,6 +314,7 @@ impl Gpu {
             // Only first 10 sprites are rendered
             for i in 0..sprite_count {
                 let sprite = &self.sprites[i as usize];
+
                 if sprite.left() <= (x as i16)
                     && sprite.right() > (x as i16)
                     && (sprite.above_bg() || bg_palette_index == 0)
@@ -429,43 +419,43 @@ fn get_tile_pattern(
 }
 
 fn display_enabled(gb: &GameBoy) -> bool {
-    gb.memory.get_byte(LCD_CONTROL_REG) & 0x80 == 0x80
+    gb.memory.get_register(Register::LcdControl) & 0x80 == 0x80
 }
 
 fn bg_enabled(gb: &GameBoy) -> bool {
-    gb.memory.get_byte(LCD_CONTROL_REG) & 0b1 == 0b1
+    gb.memory.get_register(Register::LcdControl) & 0b1 == 0b1
 }
 
 fn bg_tile_map(gb: &GameBoy) -> bool {
-    gb.memory.get_byte(LCD_CONTROL_REG) >> 3 == 0b1
+    gb.memory.get_register(Register::LcdControl) >> 3 == 0b1
 }
 
 fn window_enabled(gb: &GameBoy) -> bool {
-    gb.memory.get_byte(LCD_CONTROL_REG) & 0x20 == 0x20
+    gb.memory.get_register(Register::LcdControl) & 0x20 == 0x20
 }
 
 fn window_x_offset(gb: &GameBoy) -> u8 {
-    gb.memory.get_byte(WINDOW_X_REG)
+    gb.memory.get_register(Register::WindowX)
 }
 
 fn window_y_offset(gb: &GameBoy) -> u8 {
-    gb.memory.get_byte(WINDOW_Y_REG)
+    gb.memory.get_register(Register::WindowY)
 }
 
 fn window_tile_map(gb: &GameBoy) -> bool {
-    gb.memory.get_byte(LCD_CONTROL_REG) & 0x40 == 0x40
+    gb.memory.get_register(Register::LcdControl) & 0x40 == 0x40
 }
 
 fn bg_palette(gb: &GameBoy) -> u8 {
-    gb.memory.get_byte(0xFF47)
+    gb.memory.get_register(Register::BackgroundPaletteData)
 }
 
 fn tile_data(gb: &GameBoy) -> u8 {
-    gb.memory.get_byte(0xFF40) >> 4 & 0b1
+    gb.memory.get_register(Register::LcdControl) >> 4 & 0b1
 }
 
 fn sprite_size(gb: &GameBoy) -> u8 {
-    if gb.memory.get_byte(0xFF40) & 0b100 == 0b100 {
+    if gb.memory.get_register(Register::LcdControl) & 0b100 == 0b100 {
         16
     } else {
         8
