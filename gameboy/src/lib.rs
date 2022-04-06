@@ -28,6 +28,8 @@ pub struct System {
     clock: Clock,
     controller: Controller,
     debug_mode: bool,
+    checkpoint: time::Instant,
+    frame_count: u32,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq)]
@@ -98,6 +100,8 @@ impl System {
             clock,
             controller,
             debug_mode: options.debug_mode,
+            checkpoint: time::Instant::now(),
+            frame_count: 0,
         }
     }
 
@@ -122,26 +126,26 @@ impl System {
     /// Continue execution until a new frame is ready
     /// Returns a handle to the framebuffer, or None if the game has exited
     pub fn run_single_frame(&mut self, events: &[InputEvent]) -> Option<Framebuffer> {
+        for event in events {
+            let is_pressed = event.state == ButtonState::Pressed;
+            match event.button {
+                Button::A => self.controller.a_changed(is_pressed),
+                Button::B => self.controller.b_changed(is_pressed),
+                Button::Start => self.controller.start_changed(is_pressed),
+                Button::Select => self.controller.select_changed(is_pressed),
+                Button::Up => self.controller.up_changed(is_pressed),
+                Button::Down => self.controller.down_changed(is_pressed),
+                Button::Left => self.controller.left_changed(is_pressed),
+                Button::Right => self.controller.right_changed(is_pressed),
+            }
+        }
+
         loop {
             let cycles_elapsed = self.execute_next_instruction();
 
             self.clock.tick(&mut self.gameboy, cycles_elapsed);
 
             let frame_end = self.gpu.update(&mut self.gameboy, cycles_elapsed);
-
-            for event in events {
-                let is_pressed = event.state == ButtonState::Pressed;
-                match event.button {
-                    Button::A => self.controller.a_changed(is_pressed),
-                    Button::B => self.controller.b_changed(is_pressed),
-                    Button::Start => self.controller.start_changed(is_pressed),
-                    Button::Select => self.controller.select_changed(is_pressed),
-                    Button::Up => self.controller.up_changed(is_pressed),
-                    Button::Down => self.controller.down_changed(is_pressed),
-                    Button::Left => self.controller.left_changed(is_pressed),
-                    Button::Right => self.controller.right_changed(is_pressed),
-                }
-            }
 
             self.controller.update_joypad_register(&mut self.gameboy);
             crate::interrupts::check_interrupts(&mut self.gameboy);
@@ -155,6 +159,24 @@ impl System {
             }
 
             if frame_end {
+                self.frame_count += 1;
+
+                if self.checkpoint.elapsed().whole_nanoseconds() >= 1_000_000_000 {
+                    let average = self.gpu.total_render_ns / self.gpu.scan_lines_rendered as i128;
+                    let frame_average =
+                        self.checkpoint.elapsed().whole_nanoseconds() / self.frame_count as i128;
+
+                    self.gpu.total_render_ns = 0;
+                    self.gpu.scan_lines_rendered = 0;
+                    self.frame_count = 0;
+                    self.checkpoint = time::Instant::now();
+                    println!(
+                        "Average per scan line = {}ns, per frame = {}us",
+                        average,
+                        frame_average / 1000
+                    );
+                }
+
                 return Some(Framebuffer {
                     width: gpu::HORIZONTAL_RES as u32,
                     height: gpu::VERTICAL_RES as u32,

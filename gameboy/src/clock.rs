@@ -1,5 +1,4 @@
 use crate::game_boy::GameBoy;
-use time;
 
 const CLOCK_SPEED: u64 = 4_194_304;
 const DIVIDER_TICK: u64 = CLOCK_SPEED / 16_384;
@@ -19,19 +18,11 @@ const INTERRUPT_FLAG_REG: u16 = 0xFF0F;
 
 pub struct Clock {
     ticks: u64,
-    last_time: u64,
 }
 
 impl Clock {
     pub fn new() -> Clock {
-        Clock {
-            ticks: 0,
-            last_time: 0,
-        }
-    }
-
-    pub fn start(&mut self) {
-        self.last_time = time::precise_time_ns();
+        Clock { ticks: 0 }
     }
 
     pub fn tick(&mut self, gb: &mut GameBoy, num_cycle: u8) {

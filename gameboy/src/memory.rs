@@ -3,10 +3,21 @@ use crate::util::concat_bytes;
 use crate::util::get_lower;
 use crate::util::get_upper;
 
+const SPRITE_DATA_REG: u16 = 0xFE00;
+
 pub struct Memory {
     mem: Vec<u8>,
     boot_rom: Vec<u8>,
     mbc1: Option<MemoryBankController1>,
+}
+
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct SpriteData {
+    pub y_pos: u8,
+    pub x_pos: u8,
+    pub tile_number: u8,
+    pub attributes: u8,
 }
 
 impl Memory {
@@ -117,6 +128,15 @@ impl Memory {
         }
 
         self.mem[address as usize]
+    }
+
+    pub fn read_sprite(&self, sprite_index: u8) -> SpriteData {
+        // assert!(sprite_index < 40);
+        unsafe {
+            let sprite_ref = &self.mem[SPRITE_DATA_REG as usize];
+            let sprites = sprite_ref as *const u8 as *const SpriteData;
+            return *sprites.offset(sprite_index as isize);
+        }
     }
 
     pub fn set_byte(&mut self, address: u16, b: u8) {

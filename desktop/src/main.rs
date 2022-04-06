@@ -58,6 +58,7 @@ fn main() {
 
     let sdl_context = sdl2::init().unwrap(); //.ok_or("Could not create SDL Context.");
     let video_subsystem = sdl_context.video().unwrap();
+    let mut timer_subsystem = sdl_context.timer().unwrap();
 
     let window = video_subsystem
         .window("Gameboy Emulator", 800, 600)
@@ -99,6 +100,7 @@ fn main() {
         match system.run_single_frame(&events) {
             Some(framebuffer) => {
                 render_frame(&mut canvas, &framebuffer);
+                // timer_subsystem.delay(15);
             }
             None => {}
         }
