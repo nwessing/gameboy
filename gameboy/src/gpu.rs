@@ -263,6 +263,7 @@ impl Gpu {
         let mut current_bg_tile_pattern = 0u16;
         let mut current_window_tile_index = 0u16;
         let mut current_window_tile_pattern = 0u16;
+        let mut start_sprite_index = 0u32;
 
         for x in 0..HORIZONTAL_RES {
             let mut draw_bg = true;
@@ -312,8 +313,17 @@ impl Gpu {
             };
 
             // Only first 10 sprites are rendered
-            for i in 0..sprite_count {
+            for i in start_sprite_index..sprite_count {
                 let sprite = &self.sprites[i as usize];
+
+                if sprite.left() > x as i16 {
+                    break;
+                }
+
+                if sprite.right() <= x as i16 {
+                    start_sprite_index = i + 1;
+                    continue;
+                }
 
                 if sprite.left() <= (x as i16)
                     && sprite.right() > (x as i16)
