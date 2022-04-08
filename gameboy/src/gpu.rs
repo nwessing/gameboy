@@ -155,7 +155,7 @@ impl Gpu {
 
     /// Updates GPU state and returns whether the frame buffer has a completed
     /// frame
-    pub fn update(&mut self, gb: &mut GameBoy, ticks: u8) -> bool {
+    pub fn update(&mut self, gb: &mut GameBoy, framebuffer: &mut [u8], ticks: u8) -> bool {
         let status = gb.memory.get_register(Register::LcdcStatus);
         let prev_mode = status & 0b0000_0011;
 
@@ -201,7 +201,7 @@ impl Gpu {
             if status & LCD_STATUS_MODE0_INT == LCD_STATUS_MODE0_INT {
                 interrupt_flags |= 0b10;
             }
-            self.draw_scan_line(gb, scan_line);
+            self.draw_scan_line(gb, framebuffer, scan_line);
         }
 
         let mut coincidence_flag = status & LCD_STATUS_COINCIDENCE;
@@ -245,7 +245,7 @@ impl Gpu {
         ready_for_render
     }
 
-    pub fn draw_scan_line(&mut self, gb: &GameBoy, scan_line: u8) {
+    pub fn draw_scan_line(&mut self, gb: &GameBoy, framebuffer: &mut [u8], scan_line: u8) {
         let start = time::Instant::now();
         let window_y = (scan_line as i16) - (window_y_offset(gb) as i16);
 
@@ -300,7 +300,7 @@ impl Gpu {
                 let window_palette_index =
                     get_palette_index(current_window_tile_pattern, (7 - (window_x % 8)) as u8);
                 let window_color_id = get_palette_color(bg_palette, window_palette_index);
-                self.set_pixel(x, scan_line, window_color_id);
+                set_pixel(framebuffer, x, scan_line, window_color_id);
                 draw_bg = false;
             }
 
@@ -358,7 +358,7 @@ impl Gpu {
                         };
                         let sprite_color_id =
                             get_palette_color(sprite_palette, sprite_palette_index);
-                        self.set_pixel(x, scan_line, sprite_color_id);
+                        set_pixel(framebuffer, x, scan_line, sprite_color_id);
                         draw_bg = false;
                         break;
                     }
@@ -367,27 +367,30 @@ impl Gpu {
 
             if draw_bg {
                 let bg_color_id = get_palette_color(bg_palette, bg_palette_index);
-                self.set_pixel(x, scan_line, bg_color_id);
+                set_pixel(framebuffer, x, scan_line, bg_color_id);
             }
         }
 
         self.total_render_ns += start.elapsed().whole_nanoseconds();
         self.scan_lines_rendered += 1;
     }
+}
 
-    fn set_pixel(&mut self, x: u8, y: u8, color: u8) {
-        let pixel_index = (y as usize * HORIZONTAL_RES as usize) + x as usize;
-        let buffer_index = pixel_index / 4;
-        let (mask, color) = match pixel_index % 4 {
-            0 => (0b11000000u8, color << 6),
-            1 => (0b00110000u8, color << 4),
-            2 => (0b00001100u8, color << 2),
-            3 => (0b00000011u8, color),
-            _ => panic!("NUM % 4 was not in range 0..=3"),
-        };
+fn set_pixel(framebuffer: &mut [u8], x: u8, y: u8, color_id: u8) {
+    let color = get_color(color_id);
+    let pixel_index = 4 * ((y as usize * HORIZONTAL_RES as usize) + x as usize);
+    framebuffer[pixel_index + 0] = color;
+    framebuffer[pixel_index + 1] = color;
+    framebuffer[pixel_index + 2] = color;
+    framebuffer[pixel_index + 3] = 255u8;
+}
 
-        let value = &mut self.window_buf[buffer_index];
-        *value = (*value & !mask) | color;
+fn get_color(color_id: u8) -> u8 {
+    match color_id {
+        3 => 0u8,
+        2 => 96u8,
+        1 => 192u8,
+        _ => 255u8,
     }
 }
 

@@ -106,10 +106,9 @@ struct SystemHandle *gameboy_create_system(struct SystemInitializationOptions op
 
 void gameboy_add_event(struct SystemHandle *handle, struct Event event);
 
-void gameboy_run_single_frame(struct SystemHandle *handle,
-                              uint8_t *output,
-                              uint32_t *width,
-                              uint32_t *height);
+uint32_t gameboy_framebuffer_size(void);
+
+bool gameboy_run_single_frame(struct SystemHandle *handle, uint8_t *output);
 
 bool gameboy_is_exit_requested(const struct SystemHandle *handle);
 

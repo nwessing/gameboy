@@ -109,37 +109,24 @@ pub unsafe extern "C" fn gameboy_add_event(handle: *mut SystemHandle, event: Eve
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn gameboy_framebuffer_size() -> u32 {
+    System::screen_width() * System::screen_height() * 4
+}
+
+// outut buffer must be 160 * 144 * 4 bytes. Returns whether the game is still running or not.
+#[no_mangle]
 pub unsafe extern "C" fn gameboy_run_single_frame(
     handle: *mut SystemHandle,
     output: *mut u8,
-    width: *mut u32,
-    height: *mut u32,
-) {
-    if handle.is_null() {
-        *width = 0;
-        *height = 0;
-        return;
-    }
-
+) -> bool {
     let internals = &mut *handle;
 
-    if let Some(framebuffer) = internals.system.run_single_frame(&internals.events_buffer) {
-        let mut offset = 0;
-        if framebuffer.width != *width || framebuffer.height != *height {
-            *width = framebuffer.width;
-            *height = framebuffer.height;
-            return;
-        }
-
-        for value in framebuffer.buffer {
-            output.offset(offset).write(*value);
-            offset += 1;
-        }
-    } else {
-        *width = 0;
-        *height = 0;
-    };
+    let framebuffer = std::slice::from_raw_parts_mut(output, gameboy_framebuffer_size() as usize);
+    internals
+        .system
+        .run_single_frame(&internals.events_buffer, framebuffer);
     internals.events_buffer.clear();
+    return !internals.system.exit_requested();
 }
 
 #[no_mangle]

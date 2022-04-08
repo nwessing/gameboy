@@ -56,12 +56,6 @@ pub struct InputEvent {
     pub state: ButtonState,
 }
 
-pub struct Framebuffer<'a> {
-    pub width: u32,
-    pub height: u32,
-    pub buffer: &'a [u8; gpu::BUFFER_SIZE],
-}
-
 pub struct InitializationOptions<'a> {
     pub boot_rom: Option<&'a [u8]>,
     pub game_rom: &'a [u8],
@@ -123,9 +117,17 @@ impl System {
         }
     }
 
+    pub fn screen_width() -> u32 {
+        160
+    }
+
+    pub fn screen_height() -> u32 {
+        144
+    }
+
     /// Continue execution until a new frame is ready
-    /// Returns a handle to the framebuffer, or None if the game has exited
-    pub fn run_single_frame(&mut self, events: &[InputEvent]) -> Option<Framebuffer> {
+    /// Returns whether the game is still running
+    pub fn run_single_frame(&mut self, events: &[InputEvent], framebuffer: &mut [u8]) -> bool {
         for event in events {
             let is_pressed = event.state == ButtonState::Pressed;
             match event.button {
@@ -145,7 +147,9 @@ impl System {
 
             self.clock.tick(&mut self.gameboy, cycles_elapsed);
 
-            let frame_end = self.gpu.update(&mut self.gameboy, cycles_elapsed);
+            let frame_end = self
+                .gpu
+                .update(&mut self.gameboy, framebuffer, cycles_elapsed);
 
             self.controller.update_joypad_register(&mut self.gameboy);
             crate::interrupts::check_interrupts(&mut self.gameboy);
@@ -155,7 +159,7 @@ impl System {
             }
 
             if self.gameboy.exit_requested() {
-                return None;
+                return false;
             }
 
             if frame_end {
@@ -177,11 +181,7 @@ impl System {
                     );
                 }
 
-                return Some(Framebuffer {
-                    width: gpu::HORIZONTAL_RES as u32,
-                    height: gpu::VERTICAL_RES as u32,
-                    buffer: &self.gpu.window_buf,
-                });
+                return true;
             }
         }
     }

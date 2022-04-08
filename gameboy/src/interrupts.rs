@@ -12,7 +12,9 @@ pub fn check_interrupts(gb: &mut GameBoy) {
     let enabled = gb.memory.get_register(Register::InterruptEnable);
     let flag = gb.memory.get_register(Register::InterruptFlag);
     let interrupts = enabled & flag;
-    if gb.cpu.interrupt_enable_master {
+    if gb.cpu.interrupt_enable_master
+        && (interrupts & (V_BLANK | LCD_STAT | TIMER | SERIAL | JOYPAD) > 0)
+    {
         if interrupts & V_BLANK == V_BLANK {
             handle_interrupt(gb, flag, V_BLANK);
         } else if interrupts & LCD_STAT == LCD_STAT {

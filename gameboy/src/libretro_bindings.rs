@@ -297,60 +297,20 @@ pub unsafe extern "C" fn retro_run() {
                 query_input_state,
             );
 
-            if let Some(framebuffer) = system.run_single_frame(&input_events) {
-                OUTPUT_FRAMEBUFFER.with(|output| {
-                    let mut buffer = output.borrow_mut();
-                    let mut out_index: usize = 0;
-                    for value in framebuffer.buffer {
-                        let color0 = get_color(0b00000011 & (value >> 6));
-                        buffer[out_index + 0] = color0.0;
-                        buffer[out_index + 1] = color0.1;
-                        buffer[out_index + 2] = color0.2;
-                        buffer[out_index + 3] = 1;
-                        out_index += 4;
+            OUTPUT_FRAMEBUFFER.with(|output| {
+                let mut buffer = output.borrow_mut();
+                system.run_single_frame(&input_events, buffer.as_mut_slice());
 
-                        let color1 = get_color(0b00000011 & (value >> 4));
-                        buffer[out_index + 0] = color1.0;
-                        buffer[out_index + 1] = color1.1;
-                        buffer[out_index + 2] = color1.2;
-                        buffer[out_index + 3] = 1;
-                        out_index += 4;
-
-                        let color2 = get_color(0b00000011 & (value >> 2));
-                        buffer[out_index + 0] = color2.0;
-                        buffer[out_index + 1] = color2.1;
-                        buffer[out_index + 2] = color2.2;
-                        buffer[out_index + 3] = 1;
-                        out_index += 4;
-
-                        let color3 = get_color(0b00000011 & (value >> 0));
-                        buffer[out_index + 0] = color3.0;
-                        buffer[out_index + 1] = color3.1;
-                        buffer[out_index + 2] = color3.2;
-                        buffer[out_index + 3] = 1;
-                        out_index += 4;
-                    }
-
-                    callbacks.refresh_video.unwrap()(
-                        buffer.as_ptr() as *const c_void,
-                        framebuffer.width,
-                        framebuffer.height,
-                        framebuffer.width as usize * 4,
-                    );
-                });
-            }
+                callbacks.refresh_video.unwrap()(
+                    buffer.as_ptr() as *const c_void,
+                    System::screen_width(),
+                    System::screen_height(),
+                    System::screen_width() as usize * 4,
+                );
+            });
+            // }
         });
     });
-}
-
-fn get_color(color_id: u8) -> (u8, u8, u8) {
-    match color_id {
-        3 => (0u8, 0u8, 0u8),
-        2 => (96u8, 96u8, 96u8),
-        1 => (192u8, 192u8, 192u8),
-        0 => (255u8, 255u8, 255u8),
-        _ => (255u8, 0u8, 0u8), //Having Red on the screen should indicate something went wrong.
-    }
 }
 
 unsafe fn update_button(
