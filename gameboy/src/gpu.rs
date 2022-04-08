@@ -31,6 +31,7 @@ pub struct Gpu {
     pub total_render_ns: i128,
     pub scan_lines_rendered: u64,
     sprites: [Sprite; 40],
+    sprite_order: [usize; 10],
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -41,7 +42,7 @@ struct Sprite {
     attributes: u8,
     index: u8,
     height: i16,
-    on_scan_line: bool,
+    // on_scan_line: bool,
     pattern: u16,
 }
 
@@ -54,19 +55,19 @@ impl Sprite {
             tile_pattern_index: 0,
             attributes: 0,
             height: 0,
-            on_scan_line: false,
+            // on_scan_line: false,
             pattern: 0,
         }
     }
 
-    pub fn update(&mut self, gb: &GameBoy, height: u8, on_scan_line: bool) {
+    pub fn update(&mut self, gb: &GameBoy, height: u8) {
         let data = gb.memory.read_sprite(self.index);
         self.y_pos = data.y_pos as i16 - 16;
         self.x_pos = data.x_pos as i16 - 8;
         self.tile_pattern_index = data.tile_number;
         self.attributes = data.attributes;
         self.height = height as i16;
-        self.on_scan_line = on_scan_line;
+        // self.on_scan_line = on_scan_line;
     }
 
     pub fn retrieve_tile_pattern(&mut self, gb: &GameBoy, scan_line: u8) {
@@ -131,12 +132,24 @@ impl Gpu {
             unsafe { std::mem::transmute::<_, [Sprite; 40]>(data) }
         };
 
+        let sprite_order = {
+            let mut data: [std::mem::MaybeUninit<usize>; 10] =
+                unsafe { std::mem::MaybeUninit::uninit().assume_init() };
+
+            for i in 0..10 {
+                data[i] = std::mem::MaybeUninit::new(0usize);
+            }
+
+            unsafe { std::mem::transmute::<_, [usize; 10]>(data) }
+        };
+
         Gpu {
             window_buf,
             frame_step: 0,
             scan_lines_rendered: 0,
             total_render_ns: 0,
             sprites,
+            sprite_order,
         }
     }
 
@@ -246,7 +259,8 @@ impl Gpu {
             y_bg -= 256;
         }
 
-        let sprite_count = get_sprites_in_scan_line(gb, &mut self.sprites, scan_line);
+        let sprite_count =
+            get_sprites_in_scan_line(gb, &mut self.sprites, &mut self.sprite_order, scan_line);
         let is_window_enabled = window_enabled(gb);
         let window_map_id = window_tile_map(gb);
         let window_x_offset = window_x_offset(gb) as i16;
@@ -263,7 +277,7 @@ impl Gpu {
         let mut current_bg_tile_pattern = 0u16;
         let mut current_window_tile_index = 0u16;
         let mut current_window_tile_pattern = 0u16;
-        let mut start_sprite_index = 0u32;
+        let mut start_sprite_index = 0usize;
 
         for x in 0..HORIZONTAL_RES {
             let mut draw_bg = true;
@@ -314,7 +328,7 @@ impl Gpu {
 
             // Only first 10 sprites are rendered
             for i in start_sprite_index..sprite_count {
-                let sprite = &self.sprites[i as usize];
+                let sprite = &self.sprites[self.sprite_order[i]];
 
                 if sprite.left() > x as i16 {
                     break;
@@ -377,32 +391,57 @@ impl Gpu {
     }
 }
 
-fn get_sprites_in_scan_line(gb: &GameBoy, sprites: &mut [Sprite; 40], scan_line: u8) -> u32 {
+fn get_sprites_in_scan_line(
+    gb: &GameBoy,
+    sprites: &mut [Sprite; 40],
+    order: &mut [usize; 10],
+    scan_line: u8,
+) -> usize {
     let sprite_size = sprite_size(gb);
-    let mut sprite_count = 0u32;
-    for sprite in sprites.as_mut() {
+    let mut sprite_count = 0usize;
+
+    for i_sprite in 0..sprites.len() {
+        sprites[i_sprite].update(gb, sprite_size);
+
+        let sprite = &sprites[i_sprite];
         let on_scan_line =
             sprite.top() <= (scan_line as i16) && sprite.bottom() > (scan_line as i16);
-        sprite.update(gb, sprite_size, on_scan_line);
-        if on_scan_line {
+
+        if !on_scan_line {
+            continue;
+        }
+
+        let mut inserted = false;
+        for i_sort in 0..sprite_count {
+            let i_other_sprite = order[i_sort];
+            let other_sprite = &sprites[i_other_sprite];
+            if sprite.x_pos < other_sprite.x_pos {
+                inserted = true;
+                sprite_count += 1;
+
+                for j in ((i_sort + 1)..sprite_count).rev() {
+                    order[j] = order[j - 1];
+                }
+                order[i_sort] = i_sprite;
+                break;
+            }
+        }
+
+        if !inserted {
+            order[sprite_count] = i_sprite;
             sprite_count += 1;
         }
-    }
 
-    sprites.sort_by(|a, b| {
-        if a.on_scan_line && b.on_scan_line {
-            return a.left().cmp(&b.left());
-        } else {
-            return b.on_scan_line.cmp(&a.on_scan_line);
+        if sprite_count == 10 {
+            break;
         }
-    });
-
-    let result = if sprite_count >= 10 { 10 } else { sprite_count };
-    for i in 0..result {
-        sprites[i as usize].retrieve_tile_pattern(gb, scan_line);
     }
 
-    return result;
+    for i in 0..sprite_count {
+        sprites[order[i]].retrieve_tile_pattern(gb, scan_line);
+    }
+
+    return sprite_count;
 }
 
 fn get_palette_index(pattern: u16, x: u8) -> u8 {
