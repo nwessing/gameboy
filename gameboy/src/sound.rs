@@ -4,15 +4,16 @@ const CLOCKS_PER_FRAME: u32 = 70_224;
 const FRAME_SEQUENCER_TICK: u64 = 8_192;
 
 pub struct SoundController {
-    pub total_cycle_count: u32,
+    total_cycle_count: u32,
     last_sample_output: i32,
     frame_sequencer: FrameSequencer,
     channel_one: QuadrangularChannel,
     channel_two: QuadrangularChannel,
+    frequency: u32,
 }
 
 impl SoundController {
-    pub fn new() -> Self {
+    pub fn new(frequency: u32) -> Self {
         Self {
             total_cycle_count: 0,
             last_sample_output: -1,
@@ -36,6 +37,7 @@ impl SoundController {
                 0b0010_0000,
                 0b0000_0010,
             ),
+            frequency,
         }
     }
     pub fn update(&mut self, gb: &mut GameBoy, sound_buffer: &mut Vec<u8>, cycles_elapsed: u8) {
@@ -51,7 +53,7 @@ impl SoundController {
     }
 
     fn output_sample(&mut self, sound_buffer: &mut Vec<u8>) {
-        let sampling_rate = CLOCKS_PER_FRAME / (48000 / 60);
+        let sampling_rate = CLOCKS_PER_FRAME / (self.frequency / 60);
         let current_sample = self.total_cycle_count / sampling_rate;
 
         let do_output_new_sample = current_sample as i32 > self.last_sample_output;
@@ -126,7 +128,6 @@ struct QuadrangularChannel {
     frequency_hi_register: Register,
     accumulator: u32,
     samples_accumulated: u32,
-    last_timer: u32,
     channel_enable_mask: u8,
     left_output_mask: u8,
     right_output_mask: u8,
@@ -156,7 +157,6 @@ impl QuadrangularChannel {
             frequency_hi_register,
             accumulator: 0,
             samples_accumulated: 0,
-            last_timer: 0,
             channel_enable_mask,
             left_output_mask,
             right_output_mask,
@@ -170,10 +170,6 @@ impl QuadrangularChannel {
                 let timer_lo = gb.memory.get_register(self.frequency_lo_register);
 
                 let timer = (((timer_hi & 0b0000_0111) as u32) << 8) | timer_lo as u32;
-                if self.last_timer != 0 && self.last_timer != timer {
-                    println!("timer {}", timer);
-                }
-                self.last_timer = timer;
 
                 self.frequency_timer = (2048 - timer) * 4;
                 self.duty_position += 1;

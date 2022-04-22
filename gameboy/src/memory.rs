@@ -321,10 +321,6 @@ impl Memory {
             }
         }
 
-        if address == Register::Channel2LengthDuty as u16 {
-            println!("CH2 {:X}", b);
-        }
-
         if address == Register::SoundEnable as u16 {
             println!("Writing to FF26 {}", b);
             self.mem[address as usize] = b & 0b1000_0000;

@@ -65,6 +65,7 @@ pub struct InitializationOptions<'a> {
     pub game_rom: &'a [u8],
     pub external_ram: Option<&'a [u8]>,
     pub debug_mode: bool,
+    pub sound_frequency: u32,
 }
 
 impl System {
@@ -73,7 +74,7 @@ impl System {
         let instruction_set = InstructionSet::new();
         let clock = Clock::new();
         let gpu = Gpu::new();
-        let sound = SoundController::new();
+        let sound = SoundController::new(options.sound_frequency);
         let controller = Controller::new();
 
         gameboy.power_on();

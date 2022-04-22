@@ -1,7 +1,6 @@
 use fs::File;
 use gameboy::{Button, ButtonState, InitializationOptions, InputEvent, System};
-use sdl2::audio::AudioStatus;
-use sdl2::audio::{AudioCallback, AudioQueue, AudioSpecDesired};
+use sdl2::audio::{AudioQueue, AudioSpecDesired, AudioStatus};
 use std::env;
 use std::fs;
 use std::io::prelude::*;
@@ -10,6 +9,8 @@ use std::path::Path;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use sdl2::pixels::PixelFormatEnum;
+
+const FREQUENCY: u32 = 48000;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -51,6 +52,7 @@ fn main() {
         external_ram: external_ram.as_deref(),
         boot_rom: boot_rom.as_deref(),
         debug_mode: false,
+        sound_frequency: FREQUENCY,
     };
     let mut system = System::new(options);
 
@@ -59,13 +61,12 @@ fn main() {
 
     let audio_subsystem = sdl_context.audio().unwrap();
     let audio_spec = AudioSpecDesired {
-        freq: Some(48000),
+        freq: Some(FREQUENCY as i32),
         channels: Some(1),
         samples: None,
     };
 
-    let mut audio_framebuffer_one = Vec::with_capacity(48000 / 60);
-    let mut audio_framebuffer_two = [0u8; 48000];
+    let mut audio_framebuffer = Vec::with_capacity(FREQUENCY as usize);
 
     let queue: AudioQueue<u8> = audio_subsystem.open_queue(None, &audio_spec).unwrap();
 
@@ -129,14 +130,14 @@ fn main() {
         if !paused {
             texture
                 .with_lock(None, |buffer: &mut [u8], _: usize| {
-                    system.run_single_frame(&events, buffer, &mut audio_framebuffer_one);
+                    system.run_single_frame(&events, buffer, &mut audio_framebuffer);
 
-                    queue.queue_audio(&audio_framebuffer_one).unwrap();
+                    queue.queue_audio(&audio_framebuffer).unwrap();
                     if queue.status() != AudioStatus::Playing {
                         queue.resume();
                     }
 
-                    audio_framebuffer_one.clear();
+                    audio_framebuffer.clear();
                 })
                 .unwrap();
             canvas.copy(&texture, None, None).unwrap();
