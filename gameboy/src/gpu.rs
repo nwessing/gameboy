@@ -172,9 +172,11 @@ impl Gpu {
         let mode2 = 80;
         let mode3 = 173;
 
+        let mut ready_for_render = false;
         self.frame_step += ticks as u32;
         if self.frame_step >= frame {
             self.frame_step -= frame;
+            ready_for_render = true;
         }
 
         let scan_line_clk = self.frame_step % 456;
@@ -218,15 +220,12 @@ impl Gpu {
             }
         }
 
-        let ready_for_render = if prev_mode == MODE0_HBLANK && mode == MODE1_VBLANK {
+        if prev_mode == MODE0_HBLANK && mode == MODE1_VBLANK {
             interrupt_flags |= 0b1;
             if status & LCD_STATUS_MODE1_INT == LCD_STATUS_MODE1_INT {
                 interrupt_flags |= 0b10;
             }
-            true
-        } else {
-            false
-        };
+        }
 
         if prev_mode == MODE1_VBLANK
             && mode == MODE2_ACCESSING_OAM

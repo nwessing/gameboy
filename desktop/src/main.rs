@@ -1,5 +1,7 @@
 use fs::File;
 use gameboy::{Button, ButtonState, InitializationOptions, InputEvent, System};
+use sdl2::audio::AudioStatus;
+use sdl2::audio::{AudioCallback, AudioQueue, AudioSpecDesired};
 use std::env;
 use std::fs;
 use std::io::prelude::*;
@@ -54,7 +56,20 @@ fn main() {
 
     let sdl_context = sdl2::init().unwrap(); //.ok_or("Could not create SDL Context.");
     let video_subsystem = sdl_context.video().unwrap();
-    let mut timer_subsystem = sdl_context.timer().unwrap();
+
+    let audio_subsystem = sdl_context.audio().unwrap();
+    let audio_spec = AudioSpecDesired {
+        freq: Some(48000),
+        channels: Some(1),
+        samples: None,
+    };
+
+    let mut audio_framebuffer_one = Vec::with_capacity(48000 / 60);
+    let mut audio_framebuffer_two = [0u8; 48000];
+
+    let queue: AudioQueue<u8> = audio_subsystem.open_queue(None, &audio_spec).unwrap();
+
+    let timer_subsystem = sdl_context.timer().unwrap();
 
     let window = video_subsystem
         .window("Gameboy Emulator", 800, 600)
@@ -63,7 +78,7 @@ fn main() {
         .build()
         .unwrap();
 
-    let mut canvas = window.into_canvas().build().unwrap();
+    let mut canvas = window.into_canvas().present_vsync().build().unwrap();
     let texture_creator = canvas.texture_creator();
     let mut texture = texture_creator
         .create_texture_streaming(
@@ -76,6 +91,7 @@ fn main() {
     let mut event_pump = sdl_context.event_pump().unwrap();
 
     let mut events = Vec::with_capacity(8);
+    let mut paused = false;
     loop {
         events.clear();
         for event in event_pump.poll_iter() {
@@ -90,6 +106,15 @@ fn main() {
                     }
                 }
                 Event::KeyUp { keycode, .. } => {
+                    if keycode == Some(Keycode::Space) {
+                        paused = !paused;
+                        if paused {
+                            queue.pause();
+                        } else {
+                            queue.resume();
+                        }
+                    }
+
                     if let Some(button) = keycode_to_button(keycode) {
                         events.push(InputEvent {
                             button,
@@ -101,13 +126,22 @@ fn main() {
             }
         }
 
-        texture
-            .with_lock(None, |buffer: &mut [u8], _: usize| {
-                system.run_single_frame(&events, buffer);
-            })
-            .unwrap();
-        canvas.copy(&texture, None, None).unwrap();
-        canvas.present();
+        if !paused {
+            texture
+                .with_lock(None, |buffer: &mut [u8], _: usize| {
+                    system.run_single_frame(&events, buffer, &mut audio_framebuffer_one);
+
+                    queue.queue_audio(&audio_framebuffer_one).unwrap();
+                    if queue.status() != AudioStatus::Playing {
+                        queue.resume();
+                    }
+
+                    audio_framebuffer_one.clear();
+                })
+                .unwrap();
+            canvas.copy(&texture, None, None).unwrap();
+            canvas.present();
+        }
 
         if system.exit_requested() {
             break;

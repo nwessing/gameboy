@@ -12,8 +12,11 @@ pub mod libretro_types;
 pub mod math;
 pub mod mbc1;
 pub mod memory;
+pub mod sound;
 pub mod tests;
 pub mod util;
+
+use sound::SoundController;
 
 use crate::clock::Clock;
 use crate::controller::Controller;
@@ -24,6 +27,7 @@ use crate::game_boy::GameBoy;
 pub struct System {
     gameboy: GameBoy,
     gpu: Gpu,
+    sound: SoundController,
     instruction_set: InstructionSet,
     clock: Clock,
     controller: Controller,
@@ -69,6 +73,7 @@ impl System {
         let instruction_set = InstructionSet::new();
         let clock = Clock::new();
         let gpu = Gpu::new();
+        let sound = SoundController::new();
         let controller = Controller::new();
 
         gameboy.power_on();
@@ -91,6 +96,7 @@ impl System {
             gameboy,
             instruction_set,
             gpu,
+            sound,
             clock,
             controller,
             debug_mode: options.debug_mode,
@@ -125,9 +131,21 @@ impl System {
         144
     }
 
+    // pub fn num_samples(&self) -> usize {
+    //     (self.sound.last_sample_output + 1) as usize
+    // }
+
     /// Continue execution until a new frame is ready
     /// Returns whether the game is still running
-    pub fn run_single_frame(&mut self, events: &[InputEvent], framebuffer: &mut [u8]) -> bool {
+    pub fn run_single_frame(
+        &mut self,
+        events: &[InputEvent],
+        framebuffer: &mut [u8],
+        sound_buffer: &mut Vec<u8>,
+    ) -> bool {
+        // self.sound.last_sample_output = -1;
+        // self.sound.total_cycle_count = 0;
+
         for event in events {
             let is_pressed = event.state == ButtonState::Pressed;
             match event.button {
@@ -147,12 +165,15 @@ impl System {
 
             self.clock.tick(&mut self.gameboy, cycles_elapsed);
 
+            self.sound
+                .update(&mut self.gameboy, sound_buffer, cycles_elapsed);
             let frame_end = self
                 .gpu
                 .update(&mut self.gameboy, framebuffer, cycles_elapsed);
 
             self.controller.update_joypad_register(&mut self.gameboy);
             crate::interrupts::check_interrupts(&mut self.gameboy);
+            self.gameboy.memory.reset_triggers();
 
             if self.debug_mode {
                 println!("{}", self.gameboy.cpu);
@@ -164,23 +185,27 @@ impl System {
 
             if frame_end {
                 self.frame_count += 1;
+                // if self.frame_count > 10 {
+                //     panic!("yeet");
+                // }
 
-                if self.checkpoint.elapsed().whole_nanoseconds() >= 1_000_000_000 {
-                    let average = self.gpu.total_render_ns / self.gpu.scan_lines_rendered as i128;
-                    let frame_average =
-                        self.checkpoint.elapsed().whole_nanoseconds() / self.frame_count as i128;
+                // if self.checkpoint.elapsed().whole_nanoseconds() >= 1_000_000_000 {
+                //     let average = self.gpu.total_render_ns / self.gpu.scan_lines_rendered as i128;
+                //     let frame_average =
+                //         self.checkpoint.elapsed().whole_nanoseconds() / self.frame_count as i128;
 
-                    self.gpu.total_render_ns = 0;
-                    self.gpu.scan_lines_rendered = 0;
-                    self.frame_count = 0;
-                    self.checkpoint = time::Instant::now();
-                    println!(
-                        "Average per scan line = {}ns, per frame = {}us",
-                        average,
-                        frame_average / 1000
-                    );
-                }
+                //     self.gpu.total_render_ns = 0;
+                //     self.gpu.scan_lines_rendered = 0;
+                //     self.frame_count = 0;
+                //     self.checkpoint = time::Instant::now();
+                //     println!(
+                //         "Average per scan line = {}ns, per frame = {}us",
+                //         average,
+                //         frame_average / 1000
+                //     );
+                // }
 
+                // println!("last samp {}", self.sound.last_sample_output);
                 return true;
             }
         }

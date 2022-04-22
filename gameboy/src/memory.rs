@@ -4,6 +4,7 @@ use crate::util::get_lower;
 use crate::util::get_upper;
 
 #[repr(u16)]
+#[derive(Copy, Clone, Debug)]
 pub enum Register {
     SpriteData = 0xFE00,
     Joypad = 0xFF00,
@@ -12,6 +13,24 @@ pub enum Register {
     TimerModulo = 0xFF06,
     TimerControl = 0xFF07,
     InterruptFlag = 0xFF0F,
+
+    Channel1Sweep = 0xFF10,
+    Channel1LengthDuty = 0xFF11,
+    Channel1VolumeEnvelope = 0xFF12,
+    Channel1FrequencyLo = 0xFF13,
+    Channel1FrequencyHi = 0xFF14,
+
+    Channel2LengthDuty = 0xFF16,
+    Channel2VolumeEnvelope = 0xFF17,
+    Channel2FrequencyLo = 0xFF18,
+    Channel2FrequencyHi = 0xFF19,
+
+    Channel3TriggerLength = 0xFF1E,
+    Channel4TriggerLength = 0xFF23,
+
+    ChannelControl = 0xFF24,
+    SoundOutputTerminal = 0xFF25,
+    SoundEnable = 0xFF26,
 
     LcdControl = 0xFF40,
     LcdcStatus = 0xFF41,
@@ -33,6 +52,10 @@ pub struct Memory {
     mem: Vec<u8>,
     boot_rom: Vec<u8>,
     mbc1: Option<MemoryBankController1>,
+    channel_1_triggered: bool,
+    channel_2_triggered: bool,
+    channel_3_triggered: bool,
+    channel_4_triggered: bool,
 }
 
 #[repr(C)]
@@ -50,6 +73,10 @@ impl Memory {
             mem: vec![0; 0x10000],
             boot_rom: vec![0; 0x100],
             mbc1: None,
+            channel_1_triggered: false,
+            channel_2_triggered: false,
+            channel_3_triggered: false,
+            channel_4_triggered: false,
         }
     }
 
@@ -153,6 +180,19 @@ impl Memory {
 
         if address >= 0xE000 && address < 0xFE00 {
             return self.get_unchecked(address - 0x2000);
+        }
+
+        if address == Register::Channel2LengthDuty as u16 {
+            println!("Reading the duty register");
+        }
+        if address == Register::Channel2FrequencyLo as u16 {
+            println!("Reading the freq lo register");
+        }
+        if address == Register::Channel2FrequencyHi as u16 {
+            println!("Reading the freq hi register");
+        }
+        if address == Register::Channel2VolumeEnvelope as u16 {
+            println!("Reading the envelope register");
         }
 
         self.get_unchecked(address)
@@ -260,6 +300,37 @@ impl Memory {
             return;
         }
 
+        if address == Register::Channel1FrequencyHi as u16 {
+            if b & 0b1000_0000 != 0 {
+                self.channel_1_triggered = true;
+            }
+        }
+        if address == Register::Channel2FrequencyHi as u16 {
+            if b & 0b1000_0000 != 0 {
+                self.channel_2_triggered = true;
+            }
+        }
+        if address == Register::Channel3TriggerLength as u16 {
+            if b & 0b1000_0000 != 0 {
+                self.channel_3_triggered = true;
+            }
+        }
+        if address == Register::Channel4TriggerLength as u16 {
+            if b & 0b1000_0000 != 0 {
+                self.channel_4_triggered = true;
+            }
+        }
+
+        if address == Register::Channel2LengthDuty as u16 {
+            println!("CH2 {:X}", b);
+        }
+
+        if address == Register::SoundEnable as u16 {
+            println!("Writing to FF26 {}", b);
+            self.mem[address as usize] = b & 0b1000_0000;
+            return;
+        }
+
         self.mem[address as usize] = b;
     }
 
@@ -288,5 +359,28 @@ impl Memory {
 
     pub fn set_unchecked(&mut self, address: u16, value: u8) {
         unsafe { *self.mem.get_unchecked_mut(address as usize) = value };
+    }
+
+    pub fn channel_1_triggered(&self) -> bool {
+        self.channel_1_triggered
+    }
+
+    pub fn channel_2_triggered(&self) -> bool {
+        self.channel_2_triggered
+    }
+
+    pub fn channel_3_triggered(&self) -> bool {
+        self.channel_3_triggered
+    }
+
+    pub fn channel_4_triggered(&self) -> bool {
+        self.channel_4_triggered
+    }
+
+    pub fn reset_triggers(&mut self) {
+        self.channel_1_triggered = false;
+        self.channel_2_triggered = false;
+        self.channel_3_triggered = false;
+        self.channel_4_triggered = false;
     }
 }
