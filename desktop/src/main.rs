@@ -11,6 +11,7 @@ use sdl2::keyboard::Keycode;
 use sdl2::pixels::PixelFormatEnum;
 
 const FREQUENCY: u32 = 48000;
+const FRAME_TIME: std::time::Duration = std::time::Duration::from_micros(16_667);
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -62,15 +63,13 @@ fn main() {
     let audio_subsystem = sdl_context.audio().unwrap();
     let audio_spec = AudioSpecDesired {
         freq: Some(FREQUENCY as i32),
-        channels: Some(1),
+        channels: Some(2),
         samples: None,
     };
 
-    let mut audio_framebuffer = Vec::with_capacity(FREQUENCY as usize);
+    let mut audio_framebuffer: Vec<u8> = Vec::with_capacity(2 * FREQUENCY as usize);
 
     let queue: AudioQueue<u8> = audio_subsystem.open_queue(None, &audio_spec).unwrap();
-
-    let timer_subsystem = sdl_context.timer().unwrap();
 
     let window = video_subsystem
         .window("Gameboy Emulator", 800, 600)
@@ -79,7 +78,7 @@ fn main() {
         .build()
         .unwrap();
 
-    let mut canvas = window.into_canvas().present_vsync().build().unwrap();
+    let mut canvas = window.into_canvas().build().unwrap();
     let texture_creator = canvas.texture_creator();
     let mut texture = texture_creator
         .create_texture_streaming(
@@ -93,6 +92,9 @@ fn main() {
 
     let mut events = Vec::with_capacity(8);
     let mut paused = false;
+    let mut first_frame_from_pause = true;
+    let mut next_frame_target = std::time::Instant::now() + FRAME_TIME;
+
     loop {
         events.clear();
         for event in event_pump.poll_iter() {
@@ -112,7 +114,7 @@ fn main() {
                         if paused {
                             queue.pause();
                         } else {
-                            queue.resume();
+                            first_frame_from_pause = true;
                         }
                     }
 
@@ -133,15 +135,28 @@ fn main() {
                     system.run_single_frame(&events, buffer, &mut audio_framebuffer);
 
                     queue.queue_audio(&audio_framebuffer).unwrap();
-                    if queue.status() != AudioStatus::Playing {
+                    if !first_frame_from_pause && queue.status() != AudioStatus::Playing {
+                        // Delay audio playback by 1 frame to avoid
                         queue.resume();
                     }
+
+                    first_frame_from_pause = false;
 
                     audio_framebuffer.clear();
                 })
                 .unwrap();
             canvas.copy(&texture, None, None).unwrap();
             canvas.present();
+
+            let now = std::time::Instant::now();
+            if now < next_frame_target {
+                std::thread::sleep(next_frame_target - now);
+            }
+            next_frame_target += FRAME_TIME;
+        } else {
+            let now = std::time::Instant::now();
+            next_frame_target = now + FRAME_TIME;
+            std::thread::sleep(FRAME_TIME);
         }
 
         if system.exit_requested() {

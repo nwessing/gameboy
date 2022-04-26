@@ -2,7 +2,8 @@
 
 members = [
   "gameboy",
-  "desktop"
+  "desktop",
+  "libretrocore"
 ]
 
 [profile.dev]

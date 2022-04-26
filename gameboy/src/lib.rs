@@ -7,8 +7,6 @@ pub mod game_boy;
 pub mod gpu;
 pub mod instructions;
 pub mod interrupts;
-pub mod libretro_bindings;
-pub mod libretro_types;
 pub mod math;
 pub mod mbc1;
 pub mod memory;

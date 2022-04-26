@@ -48,21 +48,31 @@ impl SoundController {
             self.channel_two.update(gb, clocks, 1);
 
             self.total_cycle_count += 1;
-            self.output_sample(sound_buffer);
+            self.output_sample(gb, sound_buffer);
         }
     }
 
-    fn output_sample(&mut self, sound_buffer: &mut Vec<u8>) {
+    fn output_sample(&mut self, gb: &GameBoy, sound_buffer: &mut Vec<u8>) {
         let sampling_rate = CLOCKS_PER_FRAME / (self.frequency / 60);
         let current_sample = self.total_cycle_count / sampling_rate;
 
         let do_output_new_sample = current_sample as i32 > self.last_sample_output;
 
         if do_output_new_sample {
+            let channel_control = gb.memory.get_register(Register::ChannelControl);
+
+            let left_volume = ((channel_control & 0b0111_0000) >> 4) as i8;
+            let right_volume = (channel_control & 0b0000_0111) as i8;
+
             let sample1 = self.channel_one.sample();
             let sample2 = self.channel_two.sample();
-            let sample = sample1 as u32 + sample2 as u32 / 2u32;
-            sound_buffer.push(sample as u8);
+            let sample = sample1 / 2i8 + sample2 / 2i8;
+
+            let left_sample = ((sample as i32 * left_volume as i32 / 8) + 127) as u8;
+            let right_sample = ((sample as i32 * right_volume as i32 / 8) + 127) as u8;
+
+            sound_buffer.push(left_sample);
+            sound_buffer.push(right_sample);
             self.last_sample_output = current_sample as i32;
         }
     }
@@ -126,7 +136,7 @@ struct QuadrangularChannel {
     volume_envelope_register: Register,
     frequency_lo_register: Register,
     frequency_hi_register: Register,
-    accumulator: u32,
+    accumulator: i32,
     samples_accumulated: u32,
     channel_enable_mask: u8,
     left_output_mask: u8,
@@ -245,7 +255,7 @@ impl QuadrangularChannel {
         self.samples_accumulated += cycles_elapsed as u32;
         let master_disable = gb.memory.get_register(Register::SoundEnable) & 0b1000_0000 == 0;
         if self.disabled || master_disable {
-            self.accumulator = 128;
+            self.accumulator = 0;
             self.samples_accumulated = 1;
             return;
         } else {
@@ -258,32 +268,29 @@ impl QuadrangularChannel {
             let terminals = gb.memory.get_register(Register::SoundOutputTerminal);
             let channel_control = gb.memory.get_register(Register::ChannelControl);
 
-            // TODO changes based on channel
             let channel_volume = (channel_control & 0b0111_0000) >> 4;
-            let volume = (channel_volume * self.volume) / 2;
-            // }
-            // TODO changes based on channel
-            if terminals & self.left_output_mask > 0 {
-                let t = if amplitude > 0 {
-                    128 + volume
-                } else {
-                    128 - volume
-                };
+            let volume = (channel_volume * self.volume) as i32;
 
-                self.accumulator = t as u32;
+            if terminals & self.left_output_mask > 0 {
+                self.accumulator = if amplitude > 0 { volume } else { -volume };
                 self.samples_accumulated = 1;
             } else {
-                self.accumulator = 128;
+                self.accumulator = 0;
                 self.samples_accumulated = 1;
             }
         }
     }
 
-    fn sample(&mut self) -> u8 {
-        let sample = self.accumulator / self.samples_accumulated;
+    fn sample(&mut self) -> i8 {
+        let sample = self.accumulator / self.samples_accumulated as i32;
         self.accumulator = 0;
         self.samples_accumulated = 0;
-        assert!(sample < 256);
-        return sample as u8;
+
+        if !(sample <= i8::MAX as i32 && sample >= i8::MIN as i32) {
+            println!("oops {}", sample);
+        }
+        assert!(sample <= i8::MAX as i32 && sample >= i8::MIN as i32);
+
+        return sample as i8;
     }
 }
