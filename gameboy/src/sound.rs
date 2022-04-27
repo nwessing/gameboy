@@ -19,6 +19,7 @@ impl SoundController {
             last_sample_output: -1,
             frame_sequencer: FrameSequencer::new(),
             channel_one: QuadrangularChannel::new(
+                Some(Register::Channel1Sweep),
                 Register::Channel1LengthDuty,
                 Register::Channel1VolumeEnvelope,
                 Register::Channel1FrequencyLo,
@@ -29,6 +30,7 @@ impl SoundController {
             ),
 
             channel_two: QuadrangularChannel::new(
+                None,
                 Register::Channel2LengthDuty,
                 Register::Channel2VolumeEnvelope,
                 Register::Channel2FrequencyLo,
@@ -66,10 +68,11 @@ impl SoundController {
 
             let sample1 = self.channel_one.sample();
             let sample2 = self.channel_two.sample();
-            let sample = sample1 / 2i8 + sample2 / 2i8;
+            let sample_left = sample1.0 / 2i8 + sample2.0 / 2i8;
+            let sample_right = sample1.1 / 2i8 + sample2.1 / 2i8;
 
-            let left_sample = ((sample as i32 * left_volume as i32 / 8) + 127) as u8;
-            let right_sample = ((sample as i32 * right_volume as i32 / 8) + 127) as u8;
+            let left_sample = ((sample_left as i32 * left_volume as i32 / 8) + 127) as u8;
+            let right_sample = ((sample_right as i32 * right_volume as i32 / 8) + 127) as u8;
 
             sound_buffer.push(left_sample);
             sound_buffer.push(right_sample);
@@ -132,11 +135,13 @@ struct QuadrangularChannel {
     prev_length_counter: u8,
     volume: u8,
     disabled: bool,
+    sweep_register: Option<Register>,
     length_duty_register: Register,
     volume_envelope_register: Register,
     frequency_lo_register: Register,
     frequency_hi_register: Register,
-    accumulator: i32,
+    left_accumulator: i32,
+    right_accumulator: i32,
     samples_accumulated: u32,
     channel_enable_mask: u8,
     left_output_mask: u8,
@@ -145,6 +150,7 @@ struct QuadrangularChannel {
 
 impl QuadrangularChannel {
     fn new(
+        sweep_register: Option<Register>,
         length_duty_register: Register,
         volume_envelope_register: Register,
         frequency_lo_register: Register,
@@ -161,11 +167,13 @@ impl QuadrangularChannel {
             prev_length_counter: 0,
             volume: 0,
             disabled: false,
+            sweep_register,
             length_duty_register,
             volume_envelope_register,
             frequency_lo_register,
             frequency_hi_register,
-            accumulator: 0,
+            left_accumulator: 0,
+            right_accumulator: 0,
             samples_accumulated: 0,
             channel_enable_mask,
             left_output_mask,
@@ -255,7 +263,7 @@ impl QuadrangularChannel {
         self.samples_accumulated += cycles_elapsed as u32;
         let master_disable = gb.memory.get_register(Register::SoundEnable) & 0b1000_0000 == 0;
         if self.disabled || master_disable {
-            self.accumulator = 0;
+            self.left_accumulator = 0;
             self.samples_accumulated = 1;
             return;
         } else {
@@ -271,26 +279,36 @@ impl QuadrangularChannel {
             let channel_volume = (channel_control & 0b0111_0000) >> 4;
             let volume = (channel_volume * self.volume) as i32;
 
+            self.samples_accumulated = 1;
+            let sample = if amplitude > 0 { volume } else { -volume };
             if terminals & self.left_output_mask > 0 {
-                self.accumulator = if amplitude > 0 { volume } else { -volume };
-                self.samples_accumulated = 1;
-            } else {
-                self.accumulator = 0;
-                self.samples_accumulated = 1;
+                self.left_accumulator = sample;
+            }
+
+            if terminals & self.right_output_mask > 0 {
+                self.right_accumulator = sample;
             }
         }
     }
 
-    fn sample(&mut self) -> i8 {
-        let sample = self.accumulator / self.samples_accumulated as i32;
-        self.accumulator = 0;
+    fn sample(&mut self) -> (i8, i8) {
+        let left_sample = self.left_accumulator / self.samples_accumulated as i32;
+        let right_sample = self.right_accumulator / self.samples_accumulated as i32;
+        self.left_accumulator = 0;
+        self.right_accumulator = 0;
         self.samples_accumulated = 0;
 
-        if !(sample <= i8::MAX as i32 && sample >= i8::MIN as i32) {
-            println!("oops {}", sample);
-        }
-        assert!(sample <= i8::MAX as i32 && sample >= i8::MIN as i32);
+        check_sample_bounds(left_sample, "Left");
+        check_sample_bounds(right_sample, "Right");
 
-        return sample as i8;
+        return (left_sample as i8, right_sample as i8);
     }
+}
+
+fn check_sample_bounds(sample: i32, channel: &'static str) {
+    if !(sample <= i8::MAX as i32 && sample >= i8::MIN as i32) {
+        println!("oops ({}) {}", channel, sample);
+    }
+
+    assert!(sample <= i8::MAX as i32 && sample >= i8::MIN as i32);
 }
