@@ -12,6 +12,13 @@ pub struct SoundController {
     frequency: u32,
 }
 
+fn channel_1_triggered(gb: &GameBoy) -> bool {
+    gb.memory.channel_1_triggered()
+}
+fn channel_2_triggered(gb: &GameBoy) -> bool {
+    gb.memory.channel_2_triggered()
+}
+
 impl SoundController {
     pub fn new(frequency: u32) -> Self {
         Self {
@@ -24,6 +31,7 @@ impl SoundController {
                 Register::Channel1VolumeEnvelope,
                 Register::Channel1FrequencyLo,
                 Register::Channel1FrequencyHi,
+                channel_1_triggered,
                 0b0000_0001,
                 0b0001_0000,
                 0b0000_0001,
@@ -35,6 +43,7 @@ impl SoundController {
                 Register::Channel2VolumeEnvelope,
                 Register::Channel2FrequencyLo,
                 Register::Channel2FrequencyHi,
+                channel_2_triggered,
                 0b0000_0010,
                 0b0010_0000,
                 0b0000_0010,
@@ -135,11 +144,15 @@ struct QuadrangularChannel {
     prev_length_counter: u8,
     volume: u8,
     disabled: bool,
+    sweep_enabled: bool,
+    shadow_freqency: u32,
+    sweep_timer: u8,
     sweep_register: Option<Register>,
     length_duty_register: Register,
     volume_envelope_register: Register,
     frequency_lo_register: Register,
     frequency_hi_register: Register,
+    check_trigger_event: fn(&GameBoy) -> bool,
     left_accumulator: i32,
     right_accumulator: i32,
     samples_accumulated: u32,
@@ -155,6 +168,7 @@ impl QuadrangularChannel {
         volume_envelope_register: Register,
         frequency_lo_register: Register,
         frequency_hi_register: Register,
+        check_trigger_event: fn(&GameBoy) -> bool,
         channel_enable_mask: u8,
         left_output_mask: u8,
         right_output_mask: u8,
@@ -167,11 +181,15 @@ impl QuadrangularChannel {
             prev_length_counter: 0,
             volume: 0,
             disabled: false,
+            sweep_enabled: false,
+            shadow_freqency: 0,
+            sweep_timer: 0,
             sweep_register,
             length_duty_register,
             volume_envelope_register,
             frequency_lo_register,
             frequency_hi_register,
+            check_trigger_event,
             left_accumulator: 0,
             right_accumulator: 0,
             samples_accumulated: 0,
@@ -184,10 +202,7 @@ impl QuadrangularChannel {
     fn update(&mut self, gb: &mut GameBoy, clocks: FrameSequencerClocks, cycles_elapsed: u8) {
         for _ in 0..cycles_elapsed {
             if self.frequency_timer == 0 {
-                let timer_hi = gb.memory.get_register(self.frequency_hi_register);
-                let timer_lo = gb.memory.get_register(self.frequency_lo_register);
-
-                let timer = (((timer_hi & 0b0000_0111) as u32) << 8) | timer_lo as u32;
+                let timer = self.get_frequency(gb);
 
                 self.frequency_timer = (2048 - timer) * 4;
                 self.duty_position += 1;
@@ -208,13 +223,23 @@ impl QuadrangularChannel {
 
         let envelope = gb.memory.get_register(self.volume_envelope_register);
         let initial_period_timer = envelope & 0b0000_0111;
-        if gb.memory.channel_2_triggered() {
+        if (self.check_trigger_event)(gb) {
             self.volume = (envelope & 0b1111_0000) >> 4;
             self.period_timer = initial_period_timer;
             self.disabled = false;
             if self.length_timer == 0 {
                 // TODO 256 for channel 3
                 self.length_timer = 64;
+            }
+
+            if let Some(sweep_register) = self.sweep_register {
+                self.shadow_freqency = self.get_frequency(gb);
+                let sweep_values = self.reload_sweep_timer(gb, sweep_register);
+                self.sweep_enabled = sweep_values.period > 0 || sweep_values.shift > 0;
+
+                if sweep_values.shift != 0 {
+                    self.calculate_sweep_frequency(sweep_values);
+                }
             }
         }
 
@@ -245,6 +270,27 @@ impl QuadrangularChannel {
                 } else {
                     if self.volume > 0 {
                         self.volume -= 1;
+                    }
+                }
+            }
+        }
+
+        if clocks.sweep {
+            if let Some(sweep_register) = self.sweep_register {
+                if self.sweep_timer > 0 {
+                    self.sweep_timer -= 1;
+
+                    if self.sweep_timer == 0 {
+                        let sweep_values = self.reload_sweep_timer(gb, sweep_register);
+                        if self.sweep_enabled && sweep_values.period != 0 {
+                            let new_frequency = self.calculate_sweep_frequency(sweep_values);
+
+                            if new_frequency < 2048 && sweep_values.shift > 0 {
+                                self.shadow_freqency = new_frequency;
+                                self.set_frequency(gb, new_frequency);
+                                self.calculate_sweep_frequency(sweep_values);
+                            }
+                        }
                     }
                 }
             }
@@ -291,6 +337,26 @@ impl QuadrangularChannel {
         }
     }
 
+    fn calculate_sweep_frequency(&mut self, sweep_values: SweepValues) -> u32 {
+        let mut new_frequency = self.shadow_freqency >> sweep_values.shift;
+
+        // if sweep_values.direction {
+        //     new_frequency = !new_frequency;
+        // }
+        // new_frequency += self.shadow_freqency;
+        if sweep_values.direction {
+            new_frequency = self.shadow_freqency - new_frequency;
+        } else {
+            new_frequency = self.shadow_freqency + new_frequency;
+        }
+
+        if new_frequency > 2047 {
+            self.disabled = true;
+        }
+
+        return new_frequency;
+    }
+
     fn sample(&mut self) -> (i8, i8) {
         let left_sample = self.left_accumulator / self.samples_accumulated as i32;
         let right_sample = self.right_accumulator / self.samples_accumulated as i32;
@@ -302,6 +368,57 @@ impl QuadrangularChannel {
         check_sample_bounds(right_sample, "Right");
 
         return (left_sample as i8, right_sample as i8);
+    }
+
+    fn get_frequency(&self, gb: &mut GameBoy) -> u32 {
+        let timer_hi = gb.memory.get_register(self.frequency_hi_register);
+        let timer_lo = gb.memory.get_register(self.frequency_lo_register);
+
+        let timer = (((timer_hi & 0b0000_0111) as u32) << 8) | timer_lo as u32;
+        timer
+    }
+
+    fn set_frequency(&self, gb: &mut GameBoy, new_frequency: u32) {
+        let existing_hi = gb.memory.get_register(self.frequency_hi_register);
+        gb.memory.set_register(
+            self.frequency_hi_register,
+            ((new_frequency >> 8) & 0b0111) as u8 | (existing_hi & 0b1111_1000),
+        );
+        gb.memory
+            .set_register(self.frequency_lo_register, (new_frequency & 0xFF) as u8);
+    }
+
+    fn reload_sweep_timer(&mut self, gb: &GameBoy, sweep_register: Register) -> SweepValues {
+        let sweep_values = SweepValues::from_register(gb.memory.get_register(sweep_register));
+
+        self.sweep_timer = if sweep_values.period != 0 {
+            sweep_values.period
+        } else {
+            8
+        };
+
+        sweep_values
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
+struct SweepValues {
+    period: u8,
+    shift: u8,
+    direction: bool,
+}
+
+impl SweepValues {
+    pub fn from_register(sweep_values: u8) -> Self {
+        let sweep_period = (sweep_values & 0b0111_0000) >> 4;
+        let sweep_shift = sweep_values & 0b0000_0111;
+        let sweep_direction = (sweep_values & 0b0000_1000) > 0;
+
+        Self {
+            period: sweep_period,
+            shift: sweep_shift,
+            direction: sweep_direction,
+        }
     }
 }
 
