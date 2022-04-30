@@ -2,13 +2,16 @@ use crate::{game_boy::GameBoy, memory::Register};
 
 const CLOCKS_PER_FRAME: u32 = 70_224;
 const FRAME_SEQUENCER_TICK: u64 = 8_192;
+const WAVE_MEMORY_START: u16 = 0xFF30;
+const WAVE_MEMORY_END: u16 = 0xFF40;
 
 pub struct SoundController {
     total_cycle_count: u32,
     last_sample_output: i32,
     frame_sequencer: FrameSequencer,
-    channel_one: QuadrangularChannel,
-    channel_two: QuadrangularChannel,
+    channel_one: SoundChannel<SquareWave>,
+    channel_two: SoundChannel<SquareWave>,
+    channel_three: SoundChannel<CustomWave>,
     frequency: u32,
 }
 
@@ -18,6 +21,9 @@ fn channel_1_triggered(gb: &GameBoy) -> bool {
 fn channel_2_triggered(gb: &GameBoy) -> bool {
     gb.memory.channel_2_triggered()
 }
+fn channel_3_triggered(gb: &GameBoy) -> bool {
+    gb.memory.channel_3_triggered()
+}
 
 impl SoundController {
     pub fn new(frequency: u32) -> Self {
@@ -25,10 +31,10 @@ impl SoundController {
             total_cycle_count: 0,
             last_sample_output: -1,
             frame_sequencer: FrameSequencer::new(),
-            channel_one: QuadrangularChannel::new(
+            channel_one: SoundChannel::new(
+                SquareWave::new(Register::Channel1LengthDuty),
                 Some(Register::Channel1Sweep),
-                Register::Channel1LengthDuty,
-                Register::Channel1VolumeEnvelope,
+                Some(Register::Channel1VolumeEnvelope),
                 Register::Channel1FrequencyLo,
                 Register::Channel1FrequencyHi,
                 channel_1_triggered,
@@ -36,17 +42,28 @@ impl SoundController {
                 0b0001_0000,
                 0b0000_0001,
             ),
-
-            channel_two: QuadrangularChannel::new(
+            channel_two: SoundChannel::new(
+                SquareWave::new(Register::Channel2LengthDuty),
                 None,
-                Register::Channel2LengthDuty,
-                Register::Channel2VolumeEnvelope,
+                Some(Register::Channel2VolumeEnvelope),
                 Register::Channel2FrequencyLo,
                 Register::Channel2FrequencyHi,
                 channel_2_triggered,
                 0b0000_0010,
                 0b0010_0000,
                 0b0000_0010,
+            ),
+
+            channel_three: SoundChannel::new(
+                CustomWave::new(Register::Channel3Length, Register::Channel3VolumeCode),
+                None,
+                None,
+                Register::Channel3FrequencyLo,
+                Register::Channel3FrequencyHi,
+                channel_3_triggered,
+                0b0000_0100,
+                0b0100_0000,
+                0b0000_0100,
             ),
             frequency,
         }
@@ -57,6 +74,7 @@ impl SoundController {
 
             self.channel_one.update(gb, clocks, 1);
             self.channel_two.update(gb, clocks, 1);
+            self.channel_three.update(gb, clocks, 1);
 
             self.total_cycle_count += 1;
             self.output_sample(gb, sound_buffer);
@@ -77,8 +95,13 @@ impl SoundController {
 
             let sample1 = self.channel_one.sample();
             let sample2 = self.channel_two.sample();
-            let sample_left = sample1.0 / 2i8 + sample2.0 / 2i8;
-            let sample_right = sample1.1 / 2i8 + sample2.1 / 2i8;
+            let sample3 = self.channel_three.sample();
+            let sample_left =
+                ((sample1.0 as i16 + sample2.0 as i16 + sample3.0 as i16) / 3i16) as i8;
+            let sample_right =
+                ((sample1.1 as i16 + sample2.1 as i16 + sample3.1 as i16) / 3i16) as i8;
+            // let sample_left = sample2.0;
+            // let sample_right = sample2.0;
 
             let left_sample = ((sample_left as i32 * left_volume as i32 / 8) + 127) as u8;
             let right_sample = ((sample_right as i32 * right_volume as i32 / 8) + 127) as u8;
@@ -134,22 +157,19 @@ impl FrameSequencer {
     }
 }
 
-const DUTY_PATTERNS: [u8; 4] = [0b0000_0001, 0b0000_0011, 0b0000_1111, 0b1111_1100];
-
-struct QuadrangularChannel {
+struct SoundChannel<T: SoundChannelType> {
     frequency_timer: u32,
-    duty_position: u32,
     period_timer: u8,
-    length_timer: u8,
-    prev_length_counter: u8,
-    volume: u8,
+    length_timer: u32,
+    prev_length_counter: u32,
+    envelope_volume: u8,
     disabled: bool,
     sweep_enabled: bool,
     shadow_freqency: u32,
     sweep_timer: u8,
+    channel_type: T,
     sweep_register: Option<Register>,
-    length_duty_register: Register,
-    volume_envelope_register: Register,
+    volume_envelope_register: Option<Register>,
     frequency_lo_register: Register,
     frequency_hi_register: Register,
     check_trigger_event: fn(&GameBoy) -> bool,
@@ -161,11 +181,11 @@ struct QuadrangularChannel {
     right_output_mask: u8,
 }
 
-impl QuadrangularChannel {
+impl<T: SoundChannelType> SoundChannel<T> {
     fn new(
+        channel_type: T,
         sweep_register: Option<Register>,
-        length_duty_register: Register,
-        volume_envelope_register: Register,
+        volume_envelope_register: Option<Register>,
         frequency_lo_register: Register,
         frequency_hi_register: Register,
         check_trigger_event: fn(&GameBoy) -> bool,
@@ -175,17 +195,16 @@ impl QuadrangularChannel {
     ) -> Self {
         Self {
             frequency_timer: 0,
-            duty_position: 0,
             period_timer: 0,
             length_timer: 0,
             prev_length_counter: 0,
-            volume: 0,
+            envelope_volume: 0,
             disabled: false,
             sweep_enabled: false,
             shadow_freqency: 0,
             sweep_timer: 0,
+            channel_type,
             sweep_register,
-            length_duty_register,
             volume_envelope_register,
             frequency_lo_register,
             frequency_hi_register,
@@ -204,32 +223,32 @@ impl QuadrangularChannel {
             if self.frequency_timer == 0 {
                 let timer = self.get_frequency(gb);
 
-                self.frequency_timer = (2048 - timer) * 4;
-                self.duty_position += 1;
-                if self.duty_position > 7 {
-                    self.duty_position = 0;
-                }
+                self.frequency_timer = self.channel_type.reload_frequency_counter(timer);
+                self.channel_type.cycle(gb);
             }
             self.frequency_timer -= 1;
         }
 
-        let length_register = gb.memory.get_register(self.length_duty_register);
-        let new_length_counter = length_register & 0b0011_1111;
+        let new_length_counter = self.channel_type.length_counter(gb);
         if new_length_counter != self.prev_length_counter {
             self.prev_length_counter = new_length_counter;
-            // TODO 256 for channel 3
-            self.length_timer = 64 - new_length_counter;
+            self.length_timer = self.channel_type.new_length_timer(new_length_counter);
         }
 
-        let envelope = gb.memory.get_register(self.volume_envelope_register);
-        let initial_period_timer = envelope & 0b0000_0111;
+        let envelope_values = self
+            .volume_envelope_register
+            .map(|register| EnvelopeValues::from_register(gb.memory.get_register(register)));
+
         if (self.check_trigger_event)(gb) {
-            self.volume = (envelope & 0b1111_0000) >> 4;
-            self.period_timer = initial_period_timer;
+            self.channel_type.trigger_event();
+            if let Some(envelope_values) = envelope_values.as_ref() {
+                self.envelope_volume = envelope_values.initial_volume;
+                self.period_timer = envelope_values.initial_period;
+            }
+
             self.disabled = false;
             if self.length_timer == 0 {
-                // TODO 256 for channel 3
-                self.length_timer = 64;
+                self.length_timer = self.channel_type.new_length_timer(0);
             }
 
             if let Some(sweep_register) = self.sweep_register {
@@ -255,21 +274,24 @@ impl QuadrangularChannel {
         }
 
         // Tick envelope function
-        if clocks.envelope && initial_period_timer > 0 {
-            if self.period_timer > 0 {
-                self.period_timer -= 1;
-            }
-
-            if self.period_timer == 0 {
-                self.period_timer = initial_period_timer;
-                let increase_volume = (envelope & 0b0000_1000) != 0;
-                if increase_volume {
-                    if self.volume < 0xF {
-                        self.volume += 1;
+        if clocks.envelope {
+            if let Some(envelope_values) = envelope_values.as_ref() {
+                if envelope_values.initial_period > 0 {
+                    if self.period_timer > 0 {
+                        self.period_timer -= 1;
                     }
-                } else {
-                    if self.volume > 0 {
-                        self.volume -= 1;
+
+                    if self.period_timer == 0 {
+                        self.period_timer = envelope_values.initial_period;
+                        if envelope_values.add_mode {
+                            if self.envelope_volume < 0xF {
+                                self.envelope_volume += 1;
+                            }
+                        } else {
+                            if self.envelope_volume > 0 {
+                                self.envelope_volume -= 1;
+                            }
+                        }
                     }
                 }
             }
@@ -310,29 +332,25 @@ impl QuadrangularChannel {
         let master_disable = gb.memory.get_register(Register::SoundEnable) & 0b1000_0000 == 0;
         if self.disabled || master_disable {
             self.left_accumulator = 0;
+            self.right_accumulator = 0;
             self.samples_accumulated = 1;
             return;
         } else {
-            let duty_length = gb.memory.get_register(self.length_duty_register);
-            let duty = (0b1100_0000 & duty_length) >> 6;
-
-            let pattern = DUTY_PATTERNS[duty as usize];
-            let amplitude = (pattern >> self.duty_position) & 0b0000_0001;
-
-            let terminals = gb.memory.get_register(Register::SoundOutputTerminal);
             let channel_control = gb.memory.get_register(Register::ChannelControl);
-
             let channel_volume = (channel_control & 0b0111_0000) >> 4;
-            let volume = (channel_volume * self.volume) as i32;
 
             self.samples_accumulated = 1;
-            let sample = if amplitude > 0 { volume } else { -volume };
+            let sample = self
+                .channel_type
+                .sample(gb, channel_volume, self.envelope_volume);
+            let terminals = gb.memory.get_register(Register::SoundOutputTerminal);
+
             if terminals & self.left_output_mask > 0 {
-                self.left_accumulator = sample;
+                self.left_accumulator = sample as i32;
             }
 
             if terminals & self.right_output_mask > 0 {
-                self.right_accumulator = sample;
+                self.right_accumulator = sample as i32;
             }
         }
     }
@@ -422,10 +440,155 @@ impl SweepValues {
     }
 }
 
+struct EnvelopeValues {
+    initial_volume: u8,
+    add_mode: bool,
+    initial_period: u8,
+}
+
+impl EnvelopeValues {
+    pub fn from_register(envelope: u8) -> Self {
+        Self {
+            initial_volume: (envelope & 0b1111_0000) >> 4,
+            add_mode: (envelope & 0b0000_1000) > 0,
+            initial_period: (envelope & 0b0000_0111),
+        }
+    }
+}
+
 fn check_sample_bounds(sample: i32, channel: &'static str) {
     if !(sample <= i8::MAX as i32 && sample >= i8::MIN as i32) {
         println!("oops ({}) {}", channel, sample);
     }
 
     assert!(sample <= i8::MAX as i32 && sample >= i8::MIN as i32);
+}
+
+trait SoundChannelType {
+    fn cycle(&mut self, gb: &GameBoy);
+    fn reload_frequency_counter(&self, timer: u32) -> u32;
+    // Channel volume will be between 0-7 while envelope volume will be between 0-15
+    fn sample(&self, gb: &GameBoy, channel_volume: u8, envelope_volume: u8) -> i8;
+    fn length_counter(&self, gb: &GameBoy) -> u32;
+    fn new_length_timer(&self, length: u32) -> u32;
+    fn trigger_event(&mut self);
+}
+
+const DUTY_PATTERNS: [u8; 4] = [0b0000_0001, 0b0000_0011, 0b0000_1111, 0b1111_1100];
+struct SquareWave {
+    length_duty_register: Register,
+    duty_position: u32,
+}
+
+impl SquareWave {
+    fn new(length_duty_register: Register) -> Self {
+        Self {
+            duty_position: 0,
+            length_duty_register,
+        }
+    }
+}
+
+impl SoundChannelType for SquareWave {
+    fn cycle(&mut self, _: &GameBoy) {
+        self.duty_position += 1;
+        if self.duty_position > 7 {
+            self.duty_position = 0;
+        }
+    }
+    fn reload_frequency_counter(&self, timer: u32) -> u32 {
+        (2048 - timer) * 4
+    }
+    fn sample(&self, gb: &GameBoy, channel_volume: u8, envelope_volume: u8) -> i8 {
+        let duty_length = gb.memory.get_register(self.length_duty_register);
+        let duty = (0b1100_0000 & duty_length) >> 6;
+
+        let pattern = DUTY_PATTERNS[duty as usize];
+        let amplitude = (pattern >> self.duty_position) & 0b0000_0001;
+
+        let volume = (channel_volume * envelope_volume) as i8;
+        if amplitude > 0 {
+            volume
+        } else {
+            -volume
+        }
+    }
+    fn length_counter(&self, gb: &GameBoy) -> u32 {
+        let length_register = gb.memory.get_register(self.length_duty_register);
+        let new_length_counter = length_register & 0b0011_1111;
+        new_length_counter as u32
+    }
+
+    fn new_length_timer(&self, length: u32) -> u32 {
+        64 - length
+    }
+    fn trigger_event(&mut self) {}
+}
+
+struct CustomWave {
+    length_register: Register,
+    volume_shift_register: Register,
+    position_counter: u8,
+    sample_buffer: u8,
+}
+
+impl CustomWave {
+    fn new(length_register: Register, volume_shift_register: Register) -> Self {
+        Self {
+            length_register,
+            volume_shift_register,
+            position_counter: 0,
+            sample_buffer: 0,
+        }
+    }
+}
+
+impl SoundChannelType for CustomWave {
+    fn cycle(&mut self, gb: &GameBoy) {
+        self.position_counter += 1;
+        if self.position_counter > 31 {
+            self.position_counter = 0;
+        }
+        let offset = self.position_counter as u16 / 2;
+        let data = gb.memory.get_byte(WAVE_MEMORY_START + offset);
+        self.sample_buffer = if self.position_counter % 2 == 0 {
+            (data & 0xF0) >> 4
+        } else {
+            data & 0x0F
+        };
+    }
+    fn reload_frequency_counter(&self, timer: u32) -> u32 {
+        (2048 - timer) * 2
+    }
+    fn sample(&self, gb: &GameBoy, channel_volume: u8, _: u8) -> i8 {
+        let value = gb.memory.get_register(self.volume_shift_register);
+        let volume_code = (value & 0b0110_0000) >> 5;
+
+        let volume_shift: u8 = match volume_code {
+            1 => 0, // 100%
+            2 => 1, // 50%
+            3 => 2, // 25%
+            _ => 4, // mute (0)
+        };
+
+        let (sample_magnitude, sample_modifier) = if self.sample_buffer >= 7 {
+            (self.sample_buffer - 7, 1)
+        } else {
+            (7 - self.sample_buffer, -1)
+        };
+
+        // Sample magnitude can be up to 8
+        let volume = (sample_magnitude >> volume_shift) * channel_volume * 2;
+        sample_modifier * (volume as i8)
+    }
+    fn length_counter(&self, gb: &GameBoy) -> u32 {
+        let length_register = gb.memory.get_register(self.length_register);
+        length_register as u32
+    }
+    fn new_length_timer(&self, length_counter: u32) -> u32 {
+        256 - length_counter
+    }
+    fn trigger_event(&mut self) {
+        self.position_counter = 0;
+    }
 }

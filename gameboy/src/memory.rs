@@ -25,7 +25,12 @@ pub enum Register {
     Channel2FrequencyLo = 0xFF18,
     Channel2FrequencyHi = 0xFF19,
 
-    Channel3TriggerLength = 0xFF1E,
+    Channel3DacPower = 0xFF1A,
+    Channel3Length = 0xFF1B,
+    Channel3VolumeCode = 0xFF1C,
+    Channel3FrequencyLo = 0xFF1D,
+    Channel3FrequencyHi = 0xFF1E,
+
     Channel4TriggerLength = 0xFF23,
 
     ChannelControl = 0xFF24,
@@ -310,7 +315,7 @@ impl Memory {
                 self.channel_2_triggered = true;
             }
         }
-        if address == Register::Channel3TriggerLength as u16 {
+        if address == Register::Channel3FrequencyHi as u16 {
             if b & 0b1000_0000 != 0 {
                 self.channel_3_triggered = true;
             }
